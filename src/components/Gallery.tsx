@@ -177,7 +177,7 @@ export default function Gallery() {
             >
               {!imageErrors.has(item.id) && item.image && (
                 <img
-                  src= "https://ganeshpedalu.github.io/mpl--frontend/images/gallery/winnig-team-trophy.jpeg"
+                  src={item.image}
                   alt={item.title}
                   className="absolute inset-0 w-full h-full object-cover"
                   onError={() => handleImageError(item.id)}
