@@ -42,7 +42,7 @@ git push origin main
 
 ### Step 3: Wait for Deployment
 - GitHub Actions will automatically build and deploy
-- Your site will be live at: `https://YOUR_USERNAME.github.io/mpl-season-2-frontend/`
+- Your site will be live at: `https://YOUR_USERNAME.github.io/mpl--frontend/`
 
 ## ⚠️ Important Notes
 
@@ -57,7 +57,7 @@ The following files should be optimized or moved:
 3. Use CDN (Cloudinary, etc.)
 
 ### Repository Name
-If your GitHub repository name is different, update `vite.config.ts`:
+The default repository name is `mpl--frontend`. If your GitHub repository name is different, update `vite.config.ts`:
 ```typescript
 const REPO_NAME = 'your-actual-repo-name';
 ```

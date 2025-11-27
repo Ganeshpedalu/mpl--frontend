@@ -2,9 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Get repository name from environment or use default
-// For GitHub Pages: repository name (e.g., 'mpl-season-2-frontend')
+// For GitHub Pages: repository name (e.g., 'mpl--frontend')
 // For custom domain: use '/'
-const REPO_NAME = process.env.VITE_REPO_NAME || 'mpl-season-2-frontend';
+const REPO_NAME = process.env.VITE_REPO_NAME || 'mpl--frontend';
 const BASE_PATH = process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/';
 
 // https://vitejs.dev/config/

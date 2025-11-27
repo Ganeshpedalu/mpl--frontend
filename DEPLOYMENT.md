@@ -16,10 +16,10 @@ This guide will help you deploy this React application to GitHub Pages for free.
 
 ## Step 2: Update Repository Name (if different)
 
-If your repository name is different from `mpl-season-2-frontend`, update `vite.config.ts`:
+The default repository name is set to `mpl--frontend`. If your repository name is different, update `vite.config.ts`:
 
 ```typescript
-const REPO_NAME = process.env.VITE_REPO_NAME || 'your-repo-name';
+const REPO_NAME = process.env.VITE_REPO_NAME || 'mpl--frontend';
 ```
 
 Or set environment variable:
@@ -128,7 +128,7 @@ npm run deploy
 
 After deployment, your site will be available at:
 ```
-https://YOUR_USERNAME.github.io/mpl-season-2-frontend/
+https://YOUR_USERNAME.github.io/mpl--frontend/
 ```
 
 ## Optimization Tips
