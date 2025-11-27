@@ -21,7 +21,7 @@ const galleryImages = [
     id: 3, 
     title: 'Team Celebration', 
     type: 'image',
-    image: 'https://ganeshpedalu.github.io/mpl--frontend/images/gallery/winnig-team-trophy.jpeg',
+    image: '/images/gallery/winning-team.jpeg',
     color: 'from-purple-500 to-purple-700' 
   },
   { 
