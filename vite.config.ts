@@ -8,7 +8,7 @@ const REPO_NAME = 'mpl--frontend';
 
 // Base path: use repository name for production, '/' for development
 // Vite automatically detects production mode during build
-const BASE_PATH =`/${REPO_NAME}/`
+const BASE_PATH = process.env.NODE_ENV === 'production' ? `/${REPO_NAME}/` : '/';
 
 // https://vitejs.dev/config/
 export default defineConfig({

@@ -9,7 +9,7 @@ const basePath = import.meta.env.BASE_URL;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename= '/mpl--frontend/'>
+    <BrowserRouter basename={basePath}>
       <App />
     </BrowserRouter>
   </StrictMode>
