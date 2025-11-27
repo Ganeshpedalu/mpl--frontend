@@ -71,6 +71,7 @@ export default function Gallery() {
 
   const currentItem = galleryImages[currentIndex];
   const isVideo = currentItem.type === 'video';
+  console.log(galleryImages,"------------item.imageitem.imageitem.image");
 
   return (
     <section className="py-16 md:py-24 bg-white">
@@ -174,7 +175,7 @@ export default function Gallery() {
             >
               {!imageErrors.has(item.id) && item.image && (
                 <img
-                  src={"mpl--frontend"+item.image}
+                  src={item.image}
                   alt={item.title}
                   className="absolute inset-0 w-full h-full object-cover"
                   onError={() => handleImageError(item.id)}
