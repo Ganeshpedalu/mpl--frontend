@@ -57,8 +57,9 @@ The following files should be optimized or moved:
 3. Use CDN (Cloudinary, etc.)
 
 ### Repository Name
-The default repository name is `mpl--frontend`. If your GitHub repository name is different, update `vite.config.ts`:
+The repository name is hardcoded in `vite.config.ts` as `mpl--frontend`. If your GitHub repository name is different, update the file:
 ```typescript
+// In vite.config.ts, line 7
 const REPO_NAME = 'your-actual-repo-name';
 ```
 

@@ -71,7 +71,7 @@ export default function Gallery() {
 
   const currentItem = galleryImages[currentIndex];
   const isVideo = currentItem.type === 'video';
-  console.log(galleryImages,"------------item.imageitem.imageitem.image");
+
 
   return (
     <section className="py-16 md:py-24 bg-white">

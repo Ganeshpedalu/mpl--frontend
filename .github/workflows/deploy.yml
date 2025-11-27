@@ -33,7 +33,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_REPO_NAME: mpl--frontend
+          NODE_ENV: production
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

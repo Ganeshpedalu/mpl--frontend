@@ -16,15 +16,11 @@ This guide will help you deploy this React application to GitHub Pages for free.
 
 ## Step 2: Update Repository Name (if different)
 
-The default repository name is set to `mpl--frontend`. If your repository name is different, update `vite.config.ts`:
+The repository name is hardcoded in `vite.config.ts` as `mpl--frontend`. If your repository name is different, update the file:
 
 ```typescript
-const REPO_NAME = process.env.VITE_REPO_NAME || 'mpl--frontend';
-```
-
-Or set environment variable:
-```bash
-export VITE_REPO_NAME=your-repo-name
+// In vite.config.ts
+const REPO_NAME = 'your-repo-name';
 ```
 
 ## Step 3: Install Dependencies

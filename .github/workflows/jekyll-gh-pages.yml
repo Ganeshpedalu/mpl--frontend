@@ -1,3 +1,7 @@
+# NOTE: This workflow is for Jekyll sites
+# This project uses Vite/React - use deploy.yml instead
+# This file is kept for reference but is not active
+
 # Sample workflow for building and deploying a Jekyll site to GitHub Pages
 name: Deploy Jekyll with GitHub Pages dependencies preinstalled
 
