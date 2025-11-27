@@ -6,7 +6,7 @@ const galleryImages = [
     id: 1, 
     title: 'Opening Ceremony', 
     type: 'image',
-    image: '/images/gallery/opening-ceremony.jpeg',
+    image: 'mpl--frontend/images/gallery/opening-ceremony.jpeg',
     color: 'from-blue-500 to-blue-700' 
   },
   { 
