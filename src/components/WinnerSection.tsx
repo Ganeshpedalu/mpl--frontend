@@ -1,0 +1,98 @@
+import { Award, Trophy, Star } from 'lucide-react';
+import { useState } from 'react';
+
+export default function WinnerSection() {
+  const [imageError, setImageError] = useState(false);
+  const teamImage = '/images/gallery/winnig-team-trophy.jpeg';
+
+  return (
+    <section id="winner" className="py-16 md:py-24 bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center space-x-2 bg-[#E6B31E] text-[#041955] px-6 py-2 rounded-full font-bold mb-4">
+            <Trophy className="w-5 h-5" />
+            <span>Season 1 Champions - Shree Ganesh welfear soc.</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#041955] mb-4">
+            MPL Season 1 Winners
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Congratulations to our first-ever champions who set the bar high!
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-[#041955] to-[#062972] rounded-2xl overflow-hidden shadow-2xl">
+          <div className="grid md:grid-cols-2 gap-8 p-8 md:p-12">
+            <div className="flex items-center justify-center">
+              <div className="relative">
+                <div className="absolute -top-6 -right-6 bg-[#E6B31E] rounded-full p-4 z-10">
+                  <Trophy className="w-12 h-12 text-[#041955]" />
+                </div>
+                <div className="w-64 h-64 sm:w-80 sm:h-80 rounded-lg border-8 border-white shadow-2xl overflow-hidden relative bg-gradient-to-br from-[#E6B31E] to-[#c99a19]">
+                  {!imageError ? (
+                    <img
+                      src={teamImage}
+                      alt="Winning Team - Team Thunder"
+                      className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[#041955]">
+                      <div className="text-center">
+                        <Trophy className="w-24 h-24 mx-auto mb-4" />
+                        <p className="text-2xl font-bold">Team Photo</p>
+                        <p className="text-sm">Coming Soon</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-center text-white space-y-6">
+              <div>
+                <h3 className="text-3xl sm:text-4xl font-bold mb-2 text-[#E6B31E]">
+                  Champions 2025
+                </h3>
+                <p className="text-xl font-semibold">Team Thunder</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <Award className="w-6 h-6 text-[#E6B31E] flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">Unbeaten Champions</p>
+                    <p className="text-sm text-gray-300">Won 5 out of 8 matches</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <Star className="w-6 h-6 text-[#E6B31E] flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">Outstanding Performance</p>
+                    <p className="text-sm text-gray-300">Best team average of 30 runs per match</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <Trophy className="w-6 h-6 text-[#E6B31E] flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">Trophy Winners</p>
+                    <p className="text-sm text-gray-300">First team to lift the MPL trophy</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[#E6B31E]/30">
+                <p className="text-sm text-gray-300 italic">
+                  "An incredible journey with amazing teammates. Looking forward to defending our title in Season 2!"
+                </p>
+                <p className="text-sm text-[#E6B31E] mt-2">- Team Captain - Manish Rajbhar</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
