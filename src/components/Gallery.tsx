@@ -6,7 +6,7 @@ const galleryImages = [
     id: 1, 
     title: 'Opening Ceremony', 
     type: 'image',
-    image: 'mpl--frontend/images/gallery/opening-ceremony.jpeg',
+    image: '/images/gallery/opening-ceremony.jpeg',
     color: 'from-blue-500 to-blue-700' 
   },
   { 
@@ -174,7 +174,7 @@ export default function Gallery() {
             >
               {!imageErrors.has(item.id) && item.image && (
                 <img
-                  src={item.image}
+                  src={"mpl--frontend"+item.image}
                   alt={item.title}
                   className="absolute inset-0 w-full h-full object-cover"
                   onError={() => handleImageError(item.id)}
