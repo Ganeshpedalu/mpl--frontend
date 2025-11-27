@@ -21,7 +21,7 @@ const galleryImages = [
     id: 3, 
     title: 'Team Celebration', 
     type: 'image',
-    image: '/images/gallery/winning-team.jpeg',
+    image: 'https://ganeshpedalu.github.io/mpl--frontend/images/gallery/winnig-team-trophy.jpeg',
     color: 'from-purple-500 to-purple-700' 
   },
   { 
@@ -71,6 +71,8 @@ export default function Gallery() {
 
   const currentItem = galleryImages[currentIndex];
   const isVideo = currentItem.type === 'video';
+
+  console.log(galleryImages);
 
 
   return (
