@@ -6,6 +6,7 @@ export interface ApiConfig {
   endpoints: {
     register: string;
     details: string;
+    frontendDetails: string;
     checkMobile: string;
   };
 }
@@ -16,6 +17,7 @@ const developmentConfig: ApiConfig = {
   endpoints: {
     register: '/api/register',
     details: '/api/details',
+    frontendDetails: '/api/frontend-details',
     checkMobile: '/api/check-mobile',
   },
 };
@@ -26,6 +28,7 @@ const productionConfig: ApiConfig = {
   endpoints: {
     register: '/api/register',
     details: '/api/details',
+    frontendDetails: '/api/frontend-details',
     checkMobile: '/api/check-mobile',
   },
 };
@@ -46,6 +49,7 @@ export const apiConfig: ApiConfig = envApiUrl
       endpoints: {
         register: '/api/register',
         details: '/api/details',
+        frontendDetails: '/api/frontend-details',
         checkMobile: '/api/check-mobile',
       },
     }

@@ -1,8 +1,15 @@
 import { Trophy, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { useFrontendDetails } from '../context/FrontendDetailsContext';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { details } = useFrontendDetails();
+  const tournamentName = details?.dashboard?.tournamentName ?? 'MPL';
+  const seasonLabel = details?.dashboard?.season ?? 'Season 2';
+  const seasonYear = details?.dashboard?.seasonYear;
+  const headerTitle = `${tournamentName} ${seasonLabel}`.trim();
+  const subTitle = seasonYear ? `Season Year ${seasonYear}` : 'Milind Nagar Premier League';
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -19,8 +26,8 @@ export default function Header() {
           <div className="flex items-center space-x-3">
             <Trophy className="w-8 h-8 text-[#E6B31E]" />
             <div>
-              <h1 className="text-2xl font-bold">MPL Season 2</h1>
-              <p className="text-xs text-[#E6B31E]">Milind Nagar Premier League</p>
+              <h1 className="text-2xl font-bold">{headerTitle}</h1>
+              <p className="text-xs text-[#E6B31E]">{subTitle}</p>
             </div>
           </div>
 

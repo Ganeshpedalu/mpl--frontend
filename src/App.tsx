@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Loader } from 'lucide-react';
+import { FrontendDetailsProvider } from './context/FrontendDetailsContext';
 
 // Lazy load components for better performance
 const Header = lazy(() => import('./components/Header'));
@@ -38,14 +39,16 @@ function Home() {
 
 function App() {
   return (
-    <div className="min-h-screen">
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/details" element={<RegistrationDetails />} />
-        </Routes>
-      </Suspense>
-    </div>
+    <FrontendDetailsProvider>
+      <div className="min-h-screen">
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/details" element={<RegistrationDetails />} />
+          </Routes>
+        </Suspense>
+      </div>
+    </FrontendDetailsProvider>
   );
 }
 

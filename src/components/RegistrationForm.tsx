@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Upload, CheckCircle, AlertCircle, Loader, Copy, Check } from 'lucide-react';
-import { paymentConfig } from '../config/paymentConfig';
 import { getApiUrl, getApiUrlWithParams } from '../config/apiConfig';
 import { getWhatsAppGroupLink } from '../config/socialConfig';
+import { useFrontendDetails } from '../context/FrontendDetailsContext';
 
 interface FormData {
   firstName: string;
@@ -18,6 +18,7 @@ interface FormData {
 }
 
 export default function RegistrationForm() {
+  const { details } = useFrontendDetails();
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -41,6 +42,34 @@ export default function RegistrationForm() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [mobileNumberStatus, setMobileNumberStatus] = useState<'idle' | 'checking' | 'exists' | 'available'>('idle');
+
+  const paymentDetails = useMemo(() => {
+    const sanitize = (value?: string | null) => value?.trim();
+    const remotePayment = details?.payment;
+    const registrationFee = details?.dashboard?.registrationFee || 0;
+    const remoteUpi = sanitize(remotePayment?.upiId);
+    const resolvedUpi = remoteUpi
+
+    return {
+      amount: registrationFee,
+      upiId: resolvedUpi,
+      qrCode: sanitize(remotePayment?.qrImageBase64),
+      paytm: {
+        number: sanitize(remotePayment?.paytmNumber),
+        upiId: remoteUpi,
+      },
+      phonepe: {
+        number: sanitize(remotePayment?.phonePeNumber),
+        upiId: remoteUpi,
+      },
+      gpay: {
+        number: sanitize(remotePayment?.gpayNumber),
+        upiId: remoteUpi,
+      },
+    };
+  }, [details]);
+
+  const whatsappGroupLink = details?.whatsapp?.groupLink ?? getWhatsAppGroupLink();
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -353,25 +382,25 @@ export default function RegistrationForm() {
       const result = await response.json();
       
       if (result.success) {
-        setSubmitStatus('success');
-        setShowConfirmation(true);
+      setSubmitStatus('success');
+      setShowConfirmation(true);
 
-        setFormData({
-          firstName: '',
-          lastName: '',
-          mobileNumber: '',
-          tshirtSize: '',
-          tshirtName: '',
-          tshirtNumber: '',
-          role: '',
-          aadhaarFile: null,
-          profileFile: null,
-          paymentFile: null,
-        });
-        setAadhaarPreview(null);
-        setPaymentPreview(null);
-        setProfilePreview(null);
-        setErrors({});
+      setFormData({
+        firstName: '',
+        lastName: '',
+        mobileNumber: '',
+        tshirtSize: '',
+        tshirtName: '',
+        tshirtNumber: '',
+        role: '',
+        aadhaarFile: null,
+        profileFile: null,
+        paymentFile: null,
+      });
+      setAadhaarPreview(null);
+      setPaymentPreview(null);
+      setProfilePreview(null);
+      setErrors({});
       } else {
         setErrorMessage(result.message || 'Registration failed. Please try again.');
         setSubmitStatus('error');
@@ -559,16 +588,16 @@ export default function RegistrationForm() {
                 Mobile Number <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <input
-                  type="tel"
-                  value={formData.mobileNumber}
+              <input
+                type="tel"
+                value={formData.mobileNumber}
                   onChange={(e) => {
                     // Only allow digits and limit to exactly 10 digits
                     const value = e.target.value.replace(/\D/g, '').slice(0, 10);
                     setFormData({ ...formData, mobileNumber: value });
                     // Validation will happen automatically in useEffect
                   }}
-                  maxLength={10}
+                maxLength={10}
                   pattern="[0-9]{10}"
                   inputMode="numeric"
                   className={`w-full px-4 py-3 pr-12 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
@@ -577,9 +606,9 @@ export default function RegistrationForm() {
                       : mobileNumberStatus === 'available'
                       ? 'border-green-500'
                       : 'border-gray-300'
-                  }`}
-                  placeholder="Enter 10-digit mobile number"
-                />
+                }`}
+                placeholder="Enter 10-digit mobile number"
+              />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   {mobileNumberStatus === 'checking' && formData.mobileNumber.length === 10 && (
                     <Loader className="w-5 h-5 text-gray-400 animate-spin" />
@@ -765,7 +794,7 @@ export default function RegistrationForm() {
 
             <div className="bg-[#E6B31E]/10 border-2 border-[#E6B31E] rounded-lg p-4">
               <p className="text-center text-lg font-bold text-[#041955]">
-                Registration Fee: ₹{paymentConfig.amount}
+                Registration Fee: ₹{paymentDetails.amount}
               </p>
             </div>
 
@@ -779,26 +808,32 @@ export default function RegistrationForm() {
               {/* QR Code Section */}
               <div className="flex flex-col items-center space-y-4">
                 <div className="bg-white p-4 rounded-lg shadow-lg">
-                  <img 
-                    src={paymentConfig.qrCode} 
-                    alt="Payment QR Code" 
-                    className="w-64 h-64 object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = '<p class="text-gray-500 text-center p-8">QR Code image not found. Please add the QR code image to the public folder.</p>';
-                      }
-                    }}
-                  />
+                  {paymentDetails.qrCode ? (
+                    <img 
+                      src={paymentDetails.qrCode} 
+                      alt="Payment QR Code" 
+                      className="w-64 h-64 object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<p class="text-gray-500 text-center p-8">QR Code image unavailable. Please use the UPI ID below.</p>';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <p className="text-gray-500 text-center p-8">
+                      QR code will be shared via WhatsApp after registration. Please use the UPI ID below to pay.
+                    </p>
+                  )}
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-2">Or pay directly using UPI ID:</p>
                   <div className="flex items-center justify-center space-x-2 bg-white px-4 py-2 rounded-lg border-2 border-[#E6B31E]">
-                    <span className="font-bold text-lg text-[#041955]">{paymentConfig.upiId}</span>
+                    <span className="font-bold text-lg text-[#041955]">{paymentDetails.upiId}</span>
                     <button
-                      onClick={() => copyToClipboard(paymentConfig.upiId, 'upi')}
+                      onClick={() => copyToClipboard(paymentDetails.upiId ||"", 'upi')}
                       className="p-2 hover:bg-gray-100 rounded transition-colors"
                       title="Copy UPI ID"
                     >
@@ -821,13 +856,13 @@ export default function RegistrationForm() {
                       <span className="text-2xl font-bold text-blue-600">P</span>
                     </div>
                     <h4 className="font-bold text-[#041955]">Paytm</h4>
-                    {paymentConfig.paytm.upiId && (
+                    {paymentDetails.paytm.upiId && (
                       <div className="space-y-2">
                         <p className="text-xs text-gray-600">UPI ID:</p>
                         <div className="flex items-center justify-center space-x-1 bg-gray-50 px-2 py-1 rounded">
-                          <span className="text-sm font-mono text-gray-800">{paymentConfig.paytm.upiId}</span>
+                          <span className="text-sm font-mono text-gray-800">{paymentDetails.paytm.upiId}</span>
                           <button
-                            onClick={() => copyToClipboard(paymentConfig.paytm.upiId!, 'paytm-upi')}
+                            onClick={() => copyToClipboard(paymentDetails.paytm.upiId!, 'paytm-upi')}
                             className="p-1 hover:bg-gray-200 rounded transition-colors"
                             title="Copy Paytm UPI"
                           >
@@ -843,9 +878,9 @@ export default function RegistrationForm() {
                     <div className="space-y-2">
                       <p className="text-xs text-gray-600">Phone:</p>
                       <div className="flex items-center justify-center space-x-1 bg-gray-50 px-2 py-1 rounded">
-                        <span className="text-sm font-mono text-gray-800">{paymentConfig.paytm.number}</span>
+                        <span className="text-sm font-mono text-gray-800">{paymentDetails.paytm.number}</span>
                         <button
-                          onClick={() => copyToClipboard(paymentConfig.paytm.number, 'paytm-phone')}
+                          onClick={() => copyToClipboard(paymentDetails.paytm.number || '', 'paytm-phone')}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
                           title="Copy Paytm Number"
                         >
@@ -867,13 +902,13 @@ export default function RegistrationForm() {
                       <span className="text-2xl font-bold text-purple-600">P</span>
                     </div>
                     <h4 className="font-bold text-[#041955]">PhonePe</h4>
-                    {paymentConfig.phonepe.upiId && (
+                    {paymentDetails.phonepe.upiId && (
                       <div className="space-y-2">
                         <p className="text-xs text-gray-600">UPI ID:</p>
                         <div className="flex items-center justify-center space-x-1 bg-gray-50 px-2 py-1 rounded">
-                          <span className="text-sm font-mono text-gray-800">{paymentConfig.phonepe.upiId}</span>
+                          <span className="text-sm font-mono text-gray-800">{paymentDetails.phonepe.upiId}</span>
                           <button
-                            onClick={() => copyToClipboard(paymentConfig.phonepe.upiId!, 'phonepe-upi')}
+                            onClick={() => copyToClipboard(paymentDetails.phonepe.upiId!, 'phonepe-upi')}
                             className="p-1 hover:bg-gray-200 rounded transition-colors"
                             title="Copy PhonePe UPI"
                           >
@@ -889,9 +924,9 @@ export default function RegistrationForm() {
                     <div className="space-y-2">
                       <p className="text-xs text-gray-600">Phone:</p>
                       <div className="flex items-center justify-center space-x-1 bg-gray-50 px-2 py-1 rounded">
-                        <span className="text-sm font-mono text-gray-800">{paymentConfig.phonepe.number}</span>
+                        <span className="text-sm font-mono text-gray-800">{paymentDetails.phonepe.number}</span>
                         <button
-                          onClick={() => copyToClipboard(paymentConfig.phonepe.number, 'phonepe-phone')}
+                          onClick={() => copyToClipboard(paymentDetails.phonepe.number || '', 'phonepe-phone')}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
                           title="Copy PhonePe Number"
                         >
@@ -913,13 +948,13 @@ export default function RegistrationForm() {
                       <span className="text-2xl font-bold text-green-600">G</span>
                     </div>
                     <h4 className="font-bold text-[#041955]">GPay</h4>
-                    {paymentConfig.gpay.upiId && (
+                    {paymentDetails.gpay.upiId && (
                       <div className="space-y-2">
                         <p className="text-xs text-gray-600">UPI ID:</p>
                         <div className="flex items-center justify-center space-x-1 bg-gray-50 px-2 py-1 rounded">
-                          <span className="text-sm font-mono text-gray-800">{paymentConfig.gpay.upiId}</span>
+                          <span className="text-sm font-mono text-gray-800">{paymentDetails.gpay.upiId}</span>
                           <button
-                            onClick={() => copyToClipboard(paymentConfig.gpay.upiId!, 'gpay-upi')}
+                            onClick={() => copyToClipboard(paymentDetails.gpay.upiId!, 'gpay-upi')}
                             className="p-1 hover:bg-gray-200 rounded transition-colors"
                             title="Copy GPay UPI"
                           >
@@ -935,9 +970,9 @@ export default function RegistrationForm() {
                     <div className="space-y-2">
                       <p className="text-xs text-gray-600">Phone:</p>
                       <div className="flex items-center justify-center space-x-1 bg-gray-50 px-2 py-1 rounded">
-                        <span className="text-sm font-mono text-gray-800">{paymentConfig.gpay.number}</span>
+                        <span className="text-sm font-mono text-gray-800">{paymentDetails.gpay.number}</span>
                         <button
-                          onClick={() => copyToClipboard(paymentConfig.gpay.number, 'gpay-phone')}
+                          onClick={() => copyToClipboard(paymentDetails.gpay.number || '', 'gpay-phone')}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
                           title="Copy GPay Number"
                         >
@@ -998,7 +1033,7 @@ export default function RegistrationForm() {
               <p className="text-sm text-blue-900 font-semibold mb-2">Join WhatsApp Group</p>
               <p className="text-xs text-blue-700 mb-3">Stay updated with all tournament information</p>
               <a
-                href={getWhatsAppGroupLink()}
+                href={whatsappGroupLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-all"

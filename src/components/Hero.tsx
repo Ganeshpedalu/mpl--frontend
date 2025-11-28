@@ -1,4 +1,32 @@
+import { useMemo } from 'react';
+import { useFrontendDetails } from '../context/FrontendDetailsContext';
+
 export default function Hero() {
+  const { details } = useFrontendDetails();
+  const dashboard = details?.dashboard;
+  const tournamentName = dashboard?.tournamentName ?? 'MPL';
+  const seasonLabel = dashboard?.season ?? 'Season 2';
+  const registrationFee = dashboard?.registrationFee ?? 300;
+  const seasonYear = dashboard?.seasonYear;
+
+  const lastDateShort = useMemo(() => {
+    if (!dashboard?.lastDate) {
+      return 'Dec 1';
+    }
+    const date = new Date(dashboard.lastDate);
+    return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  }, [dashboard?.lastDate]);
+
+  const lastDateLong = useMemo(() => {
+    if (!dashboard?.lastDate) {
+      return '1st December';
+    }
+    const date = new Date(dashboard.lastDate);
+    return date.toLocaleDateString('en-IN', { month: 'long', day: 'numeric' });
+  }, [dashboard?.lastDate]);
+
+  const heroTitle = `${tournamentName} ${seasonLabel}`.trim();
+
   const scrollToRegister = () => {
     const element = document.getElementById('register');
     if (element) {
@@ -20,7 +48,7 @@ export default function Hero() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-            MPL Season 2
+            {heroTitle}
             <br />
             <span className="text-[#E6B31E]">Player Registration</span>
           </h1>
@@ -30,7 +58,7 @@ export default function Hero() {
           </p>
 
           <p className="text-base sm:text-lg mb-10 text-[#E6B31E] font-semibold">
-            Register before 1st December to participate in the auction
+            Register before {lastDateLong} to participate in the auction
           </p>
 
           <button
@@ -42,16 +70,18 @@ export default function Hero() {
 
           <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
-              <div className="text-4xl font-bold text-[#E6B31E] mb-2">₹300</div>
+              <div className="text-4xl font-bold text-[#E6B31E] mb-2">₹{registrationFee}</div>
               <div className="text-sm text-gray-300">Registration Fee</div>
             </div>
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
-              <div className="text-4xl font-bold text-[#E6B31E] mb-2">Dec 1</div>
+              <div className="text-4xl font-bold text-[#E6B31E] mb-2">{lastDateShort}</div>
               <div className="text-sm text-gray-300">Last Date</div>
             </div>
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
-              <div className="text-4xl font-bold text-[#E6B31E] mb-2">2026</div>
-              <div className="text-sm text-gray-300">Season 2</div>
+              <div className="text-4xl font-bold text-[#E6B31E] mb-2">
+                {seasonYear ?? seasonLabel}
+              </div>
+              <div className="text-sm text-gray-300">{seasonYear ? 'Season Year' : 'Season'}</div>
             </div>
           </div>
         </div>

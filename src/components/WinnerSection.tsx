@@ -1,9 +1,25 @@
 import { Award, Trophy, Star } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useFrontendDetails } from '../context/FrontendDetailsContext';
 
 export default function WinnerSection() {
+  const { details } = useFrontendDetails();
   const [imageError, setImageError] = useState(false);
-  const teamImage = '/images/gallery/winnig-team-trophy.jpeg';
+  const winner = details?.winners?.[0];
+  const teamImage = winner?.base64ImageUrl?.trim();
+  const winnerSeasonLabel = winner?.season ?? 'Season 1';
+  const championName = winner?.teamName ?? 'Shree Ganesh Welfare Society';
+  const championDescription = winner?.description ?? 'MPL Season 1 Champions';
+  const captainName = winner?.teamCaptainName ?? 'Manish Rajbhar';
+  const tournamentTitle = details?.dashboard?.tournamentName ?? 'MPL';
+  const seasonName = details?.dashboard?.season ?? winnerSeasonLabel;
+  const testimonialQuote = winner
+    ? `An unforgettable ${winnerSeasonLabel} run by ${championName}.`
+    : 'An incredible journey with amazing teammates. Looking forward to defending our title!';
+
+  useEffect(() => {
+    setImageError(false);
+  }, [teamImage]);
 
   return (
     <section id="winner" className="py-16 md:py-24 bg-gray-50">
@@ -11,13 +27,13 @@ export default function WinnerSection() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center space-x-2 bg-[#E6B31E] text-[#041955] px-6 py-2 rounded-full font-bold mb-4">
             <Trophy className="w-5 h-5" />
-            <span>Season 1 Champions - Shree Ganesh welfear soc.</span>
+            <span>{winnerSeasonLabel} Champions - {championName}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#041955] mb-4">
-            MPL Season 1 Winners
+            {tournamentTitle} {seasonName} Winners
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Congratulations to our first-ever champions who set the bar high!
+            {championDescription}
           </p>
         </div>
 
@@ -29,10 +45,10 @@ export default function WinnerSection() {
                   <Trophy className="w-12 h-12 text-[#041955]" />
                 </div>
                 <div className="w-64 h-64 sm:w-80 sm:h-80 rounded-lg border-8 border-white shadow-2xl overflow-hidden relative bg-gradient-to-br from-[#E6B31E] to-[#c99a19]">
-                  {!imageError ? (
+                  {teamImage && !imageError ? (
                     <img
                       src={teamImage}
-                      alt="Winning Team - Team Thunder"
+                      alt={`${championName} - ${winnerSeasonLabel}`}
                       className="w-full h-full object-cover"
                       onError={() => setImageError(true)}
                     />
@@ -52,42 +68,42 @@ export default function WinnerSection() {
             <div className="flex flex-col justify-center text-white space-y-6">
               <div>
                 <h3 className="text-3xl sm:text-4xl font-bold mb-2 text-[#E6B31E]">
-                  Champions 2025
+                  Champions {winnerSeasonLabel}
                 </h3>
-                <p className="text-xl font-semibold">Team Thunder</p>
+                <p className="text-xl font-semibold">{championName}</p>
               </div>
 
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
                   <Award className="w-6 h-6 text-[#E6B31E] flex-shrink-0 mt-1" />
                   <div>
-                    <p className="font-semibold">Unbeaten Champions</p>
-                    <p className="text-sm text-gray-300">Won 5 out of 8 matches</p>
+                    <p className="font-semibold">{championDescription}</p>
+                    <p className="text-sm text-gray-300">Celebrated {winnerSeasonLabel}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
                   <Star className="w-6 h-6 text-[#E6B31E] flex-shrink-0 mt-1" />
                   <div>
-                    <p className="font-semibold">Outstanding Performance</p>
-                    <p className="text-sm text-gray-300">Best team average of 30 runs per match</p>
+                    <p className="font-semibold">Team Captain</p>
+                    <p className="text-sm text-gray-300">{captainName}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start space-x-3">
                   <Trophy className="w-6 h-6 text-[#E6B31E] flex-shrink-0 mt-1" />
                   <div>
-                    <p className="font-semibold">Trophy Winners</p>
-                    <p className="text-sm text-gray-300">First team to lift the MPL trophy</p>
+                    <p className="font-semibold">Presented by {tournamentTitle}</p>
+                    <p className="text-sm text-gray-300">{seasonName}</p>
                   </div>
                 </div>
               </div>
 
               <div className="pt-4 border-t border-[#E6B31E]/30">
                 <p className="text-sm text-gray-300 italic">
-                  "An incredible journey with amazing teammates. Looking forward to defending our title in Season 2!"
+                  "{testimonialQuote}"
                 </p>
-                <p className="text-sm text-[#E6B31E] mt-2">- Team Captain - Manish Rajbhar</p>
+                <p className="text-sm text-[#E6B31E] mt-2">- Team Captain - {captainName}</p>
               </div>
             </div>
           </div>
