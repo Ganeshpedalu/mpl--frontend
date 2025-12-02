@@ -92,7 +92,6 @@ interface FrontendDetailsContextValue {
   error: string | null;
   refresh: () => Promise<void>;
 }
-
 const FrontendDetailsContext = createContext<
   FrontendDetailsContextValue | undefined
 >(undefined);
