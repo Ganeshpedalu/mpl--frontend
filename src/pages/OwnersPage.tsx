@@ -87,17 +87,7 @@ export default function OwnersPage() {
                           className="w-full h-full object-cover"
                           onError={() => handleImageError(index)}
                         />
-                      ) : (
-                        <div className="text-center text-white">
-                          <Users className="w-24 h-24 mx-auto mb-4 opacity-50" />
-                          <p className="text-lg font-semibold">{owner.name}</p>
-                        </div>
-                      )}
-                      {owner.teamName && (
-                        <div className="absolute top-4 right-4 bg-[#E6B31E] text-[#041955] px-3 py-1 rounded-full text-xs font-bold">
-                          {owner.teamName}
-                        </div>
-                      )}
+                      ) : null }
                     </div>
 
                     {/* Owner Details */}
