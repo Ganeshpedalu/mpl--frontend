@@ -45,12 +45,32 @@ export default function Gallery() {
   const [videoErrors, setVideoErrors] = useState<Set<number>>(new Set());
 
   const remoteHighlights = useMemo<GalleryItem[]>(() => {
-    if (!details?.highlights?.length) {
-      return [];
+    const allItems: GalleryItem[] = [];
+    let itemIndex = 0;
+
+    // Add winners as previous year highlights
+    if (details?.winners && details.winners.length > 0) {
+      details.winners.forEach((winner) => {
+        if (winner.base64ImageUrl?.trim()) {
+          const winnerImage = buildMediaSource(winner.base64ImageUrl, 'image');
+          if (winnerImage) {
+            allItems.push({
+              id: itemIndex + 1,
+              title: winner.teamName || winner.description || `Previous Year Winner`,
+              label: winner.season || 'Previous Season',
+              type: 'image',
+              image: winnerImage,
+              color: highlightColors[itemIndex % highlightColors.length],
+            });
+            itemIndex++;
+          }
+        }
+      });
     }
 
-    return details.highlights
-      .map((item, index) => {
+    // Add regular highlights
+    if (details?.highlights && details.highlights.length > 0) {
+      details.highlights.forEach((item) => {
         const explicitMediaType = item.mediaType ?? item.media_type ?? item.contentType ?? item.format;
         const derivedType =
           typeof explicitMediaType === 'string' && explicitMediaType.toLowerCase() === 'video'
@@ -66,17 +86,17 @@ export default function Gallery() {
           (item.title && item.title.trim()) ||
           (item.label && item.label.trim()) ||
           (item.type && !['video', 'image'].includes(item.type.toLowerCase()) ? item.type : undefined) ||
-          `Highlight ${index + 1}`;
+          `Highlight ${itemIndex + 1}`;
 
         const badgeLabel =
           item.type && !['video', 'image'].includes(item.type.toLowerCase()) ? item.type : item.label?.trim();
 
-        const baseColor = item.color ?? highlightColors[index % highlightColors.length];
+        const baseColor = item.color ?? highlightColors[itemIndex % highlightColors.length];
         const imageSource = buildMediaSource(item.base64ImageUrl ?? item.imageUrl ?? item.thumbnailBase64, 'image');
         const videoSource = buildMediaSource(item.base64VideoUrl ?? item.videoUrl, 'video');
 
-        return {
-          id: index + 1,
+        const galleryItem: GalleryItem = {
+          id: itemIndex + 1,
           title: displayTitle,
           label: badgeLabel,
           type: derivedType as GalleryItem['type'],
@@ -84,12 +104,20 @@ export default function Gallery() {
           video: derivedType === 'video' ? videoSource : undefined,
           color: baseColor,
         };
-      })
-      .filter((highlight) => (highlight.type === 'video' ? Boolean(highlight.video) : Boolean(highlight.image)));
-  }, [details?.highlights]);
+
+        // Only add if it has valid media
+        if ((galleryItem.type === 'video' && galleryItem.video) || (galleryItem.type === 'image' && galleryItem.image)) {
+          allItems.push(galleryItem);
+          itemIndex++;
+        }
+      });
+    }
+
+    return allItems;
+  }, [details?.highlights, details?.winners]);
 
   const galleryImages = remoteHighlights;
-  const highlightSeason = details?.dashboard?.season ?? 'Season Highlights';
+  const highlightSeason = details?.winners[0]?.season ?? 'Season Highlights';
   const highlightSubtitle = details?.dashboard?.tournamentName
     ? `Relive the memorable moments from ${details.dashboard.tournamentName}`
     : 'Relive the memorable moments shared by the MPL community';

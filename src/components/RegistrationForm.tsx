@@ -44,15 +44,14 @@ export default function RegistrationForm() {
   const [mobileNumberStatus, setMobileNumberStatus] = useState<'idle' | 'checking' | 'exists' | 'available'>('idle');
 
   const paymentDetails = useMemo(() => {
-    const sanitize = (value?: string | null) => value?.trim();
+    const sanitize = (value?: string | null) => value?.trim() || '';
     const remotePayment = details?.payment;
     const registrationFee = details?.dashboard?.registrationFee || 0;
     const remoteUpi = sanitize(remotePayment?.upiId);
-    const resolvedUpi = remoteUpi
 
     return {
       amount: registrationFee,
-      upiId: resolvedUpi,
+      upiId: remoteUpi || '',
       qrCode: sanitize(remotePayment?.qrImageBase64),
       paytm: {
         number: sanitize(remotePayment?.paytmNumber),
@@ -460,16 +459,36 @@ export default function RegistrationForm() {
               <p className="text-xl sm:text-2xl text-gray-700 mb-2 font-semibold">
                 Thank you for registering!
               </p>
-              <p className="text-lg text-gray-600 mb-8">
+              <p className="text-lg text-gray-600 mb-6">
                 Your registration has been submitted successfully. We'll contact you soon with further details.
               </p>
+
+              {/* WhatsApp Group Link */}
+              {whatsappGroupLink && (
+                <div className="mb-8 bg-green-50 border-2 border-green-200 rounded-lg p-6">
+                  <p className="text-lg font-semibold text-[#041955] mb-3">
+                    Join Our WhatsApp Group
+                  </p>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Stay updated with all tournament information, match schedules, and announcements
+                  </p>
+                  <a
+                    href={whatsappGroupLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block bg-green-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    Join WhatsApp Group
+                  </a>
+                </div>
+              )}
 
               {/* Reset Button */}
               <button
                 onClick={handleResetForm}
-                className="mt-8 bg-[#041955] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#062972] transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                className="mt-4 bg-[#041955] text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-[#062972] transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
-                Raise One More Request
+                Register Another Player
               </button>
             </div>
           </div>
@@ -831,18 +850,20 @@ export default function RegistrationForm() {
                 <div className="text-center">
                   <p className="text-sm text-gray-600 mb-2">Or pay directly using UPI ID:</p>
                   <div className="flex items-center justify-center space-x-2 bg-white px-4 py-2 rounded-lg border-2 border-[#E6B31E]">
-                    <span className="font-bold text-lg text-[#041955]">{paymentDetails.upiId}</span>
-                    <button
-                      onClick={() => copyToClipboard(paymentDetails.upiId ||"", 'upi')}
-                      className="p-2 hover:bg-gray-100 rounded transition-colors"
-                      title="Copy UPI ID"
-                    >
-                      {copiedField === 'upi' ? (
-                        <Check className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <Copy className="w-5 h-5 text-gray-600" />
-                      )}
-                    </button>
+                    <span className="font-bold text-lg text-[#041955]">{paymentDetails.upiId || 'N/A'}</span>
+                    {paymentDetails.upiId && (
+                      <button
+                        onClick={() => copyToClipboard(paymentDetails.upiId || '', 'upi')}
+                        className="p-2 hover:bg-gray-100 rounded transition-colors"
+                        title="Copy UPI ID"
+                      >
+                        {copiedField === 'upi' ? (
+                          <Check className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <Copy className="w-5 h-5 text-gray-600" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1027,19 +1048,6 @@ export default function RegistrationForm() {
               {errors.paymentFile && (
                 <p className="mt-1 text-sm text-red-500">{errors.paymentFile}</p>
               )}
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-900 font-semibold mb-2">Join WhatsApp Group</p>
-              <p className="text-xs text-blue-700 mb-3">Stay updated with all tournament information</p>
-              <a
-                href={whatsappGroupLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-all"
-              >
-                Join WhatsApp Group
-              </a>
             </div>
 
             <button

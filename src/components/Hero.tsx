@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useFrontendDetails } from '../context/FrontendDetailsContext';
 
 export default function Hero() {
@@ -17,6 +18,15 @@ export default function Hero() {
     return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
   }, [dashboard?.lastDate]);
 
+  const auctionDateShort = useMemo(() => {
+    if (!dashboard?.auctionDate) {
+      return 'NA';
+    }
+    const date = new Date(dashboard.auctionDate);
+    return date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  }, [dashboard?.auctionDate]);
+
+  
   const lastDateLong = useMemo(() => {
     if (!dashboard?.lastDate) {
       return '1st December';
@@ -26,13 +36,6 @@ export default function Hero() {
   }, [dashboard?.lastDate]);
 
   const heroTitle = `${tournamentName} ${seasonLabel}`.trim();
-
-  const scrollToRegister = () => {
-    const element = document.getElementById('register');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   return (
     <section id="home" className="relative bg-gradient-to-br from-[#041955] via-[#062972] to-[#041955] text-white py-20 md:py-32">
@@ -61,14 +64,14 @@ export default function Hero() {
             Register before {lastDateLong} to participate in the auction
           </p>
 
-          <button
-            onClick={scrollToRegister}
-            className="bg-[#E6B31E] text-[#041955] px-10 py-4 rounded-full text-xl font-bold hover:bg-white transition-all duration-300 transform hover:scale-110 shadow-2xl hover:shadow-[#E6B31E]/50"
+          <Link
+            to="/register"
+            className="inline-block bg-[#E6B31E] text-[#041955] px-10 py-4 rounded-full text-xl font-bold hover:bg-white transition-all duration-300 transform hover:scale-110 shadow-2xl hover:shadow-[#E6B31E]/50"
           >
             Register Now
-          </button>
+          </Link>
 
-          <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
               <div className="text-4xl font-bold text-[#E6B31E] mb-2">₹{registrationFee}</div>
               <div className="text-sm text-gray-300">Registration Fee</div>
@@ -76,6 +79,10 @@ export default function Hero() {
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
               <div className="text-4xl font-bold text-[#E6B31E] mb-2">{lastDateShort}</div>
               <div className="text-sm text-gray-300">Last Date</div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
+              <div className="text-4xl font-bold text-[#E6B31E] mb-2">{auctionDateShort}</div>
+              <div className="text-sm text-gray-300">Auction Date</div>
             </div>
             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-[#E6B31E]/30">
               <div className="text-4xl font-bold text-[#E6B31E] mb-2">

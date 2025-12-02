@@ -3,15 +3,13 @@ import { Routes, Route } from 'react-router-dom';
 import { Loader } from 'lucide-react';
 import { FrontendDetailsProvider } from './context/FrontendDetailsContext';
 
-// Lazy load components for better performance
-const Header = lazy(() => import('./components/Header'));
-const Hero = lazy(() => import('./components/Hero'));
-const WinnerSection = lazy(() => import('./components/WinnerSection'));
-const Gallery = lazy(() => import('./components/Gallery'));
-const RegistrationForm = lazy(() => import('./components/RegistrationForm'));
-const RegistrationDetails = lazy(() => import('./components/RegistrationDetails'));
-const DetailsSearch = lazy(() => import('./components/DetailsSearch'));
-const Footer = lazy(() => import('./components/Footer'));
+// Lazy load pages for better performance
+const HomePage = lazy(() => import('./pages/HomePage'));
+const RegistrationPage = lazy(() => import('./pages/RegistrationPage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const DetailsPage = lazy(() => import('./pages/DetailsPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const OwnersPage = lazy(() => import('./pages/OwnersPage'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -23,28 +21,18 @@ const LoadingFallback = () => (
   </div>
 );
 
-function Home() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <Header />
-      <Hero />
-      <WinnerSection />
-      <Gallery />
-      <RegistrationForm />
-      <DetailsSearch />
-      <Footer />
-    </Suspense>
-  );
-}
-
 function App() {
   return (
     <FrontendDetailsProvider>
       <div className="min-h-screen">
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/details" element={<RegistrationDetails />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/register" element={<RegistrationPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/details" element={<DetailsPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/owners" element={<OwnersPage />} />
           </Routes>
         </Suspense>
       </div>

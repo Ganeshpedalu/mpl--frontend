@@ -14,7 +14,7 @@ export default function WinnerSection() {
   const tournamentTitle = details?.dashboard?.tournamentName ?? 'MPL';
   const seasonName = details?.dashboard?.season ?? winnerSeasonLabel;
   const testimonialQuote = winner
-    ? `An unforgettable ${winnerSeasonLabel} run by ${championName}.`
+    ? 'An incredible journey with amazing teammates. Looking forward to defending our title!'
     : 'An incredible journey with amazing teammates. Looking forward to defending our title!';
 
   useEffect(() => {
@@ -25,16 +25,9 @@ export default function WinnerSection() {
     <section id="winner" className="py-16 md:py-24 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center space-x-2 bg-[#E6B31E] text-[#041955] px-6 py-2 rounded-full font-bold mb-4">
-            <Trophy className="w-5 h-5" />
-            <span>{winnerSeasonLabel} Champions - {championName}</span>
-          </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#041955] mb-4">
-            {tournamentTitle} {seasonName} Winners
+            {tournamentTitle} {winnerSeasonLabel} Winner
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            {championDescription}
-          </p>
         </div>
 
         <div className="bg-gradient-to-br from-[#041955] to-[#062972] rounded-2xl overflow-hidden shadow-2xl">
@@ -67,10 +60,7 @@ export default function WinnerSection() {
 
             <div className="flex flex-col justify-center text-white space-y-6">
               <div>
-                <h3 className="text-3xl sm:text-4xl font-bold mb-2 text-[#E6B31E]">
-                  Champions {winnerSeasonLabel}
-                </h3>
-                <p className="text-xl font-semibold">{championName}</p>
+                <p className="text-xl font-semibold">Team:- {championName}</p>
               </div>
 
               <div className="space-y-4">

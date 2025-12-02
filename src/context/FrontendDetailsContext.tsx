@@ -16,6 +16,7 @@ export interface DashboardDetails {
   registrationFee: number;
   lastDate: string;
   seasonYear: number;
+  auctionDate?: string;
 }
 
 export type HighlightMediaType = "image" | "video";
@@ -53,6 +54,21 @@ export interface WinnerDetails {
   base64ImageUrl?: string;
 }
 
+export interface AboutPageDetails {
+  description?: string;
+  base64ImageUrl?: string;
+}
+
+export interface OwnerDetails {
+  name: string;
+  email?: string;
+  phone?: string;
+  base64ImageUrl?: string;
+  bio?: string;
+  teamName?: string;
+  season: string;
+}
+
 export interface FrontendDetailsData {
   createdAt: string;
   updatedAt: string;
@@ -61,6 +77,8 @@ export interface FrontendDetailsData {
   payment: PaymentDetails;
   whatsapp: { groupLink: string };
   winners: WinnerDetails[];
+  aboutPage?: AboutPageDetails;
+  owners?: OwnerDetails[];
 }
 
 interface FrontendDetailsResponse {

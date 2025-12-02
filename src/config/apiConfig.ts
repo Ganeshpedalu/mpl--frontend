@@ -39,9 +39,10 @@ const envApiUrl = import.meta.env.VITE_API_URL;
 // Determine which config to use based on environment
 // Priority: 1. VITE_API_URL env variable, 2. VITE_USE_LOCALHOST flag, 3. Production (default)
 // If VITE_API_URL is set, use it
-// If VITE_USE_LOCALHOST=true, use local API
+// If VITE_USE_LOCALHOST=true, use localhost (only in dev mode)
 // Otherwise, use production API (default)
-const useLocalhost = import.meta.env.VITE_USE_LOCALHOST === 'true' && !envApiUrl;
+const useLocalhostEnv = import.meta.env.VITE_USE_LOCALHOST;
+const useLocalhost = useLocalhostEnv === 'true' && import.meta.env.DEV && !envApiUrl;
 
 export const apiConfig: ApiConfig = envApiUrl
   ? {
@@ -79,6 +80,12 @@ if (import.meta.env.DEV) {
     : useLocalhost
     ? 'Development (Localhost)'
     : 'Production (Live)';
+  
+  console.log('🔧 Environment Variables:', {
+    VITE_USE_LOCALHOST: useLocalhostEnv,
+    VITE_API_URL: envApiUrl || 'not set',
+    DEV: import.meta.env.DEV,
+  });
   
   console.log('🔧 API Configuration:', {
     baseUrl: apiConfig.baseUrl,

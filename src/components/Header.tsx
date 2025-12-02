@@ -1,9 +1,11 @@
 import { Trophy, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useFrontendDetails } from '../context/FrontendDetailsContext';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
   const { details } = useFrontendDetails();
   const tournamentName = details?.dashboard?.tournamentName ?? 'MPL';
   const seasonLabel = details?.dashboard?.season ?? 'Season 2';
@@ -11,25 +13,19 @@ export default function Header() {
   const headerTitle = `${tournamentName} ${seasonLabel}`.trim();
   const subTitle = seasonYear ? `Season Year ${seasonYear}` : 'Milind Nagar Premier League';
 
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-      setIsMenuOpen(false);
-    }
-  };
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="bg-[#041955] text-white sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
-          <div className="flex items-center space-x-3">
+          <Link to="/" className="flex items-center space-x-3">
             <Trophy className="w-8 h-8 text-[#E6B31E]" />
             <div>
               <h1 className="text-2xl font-bold">{headerTitle}</h1>
               <p className="text-xs text-[#E6B31E]">{subTitle}</p>
             </div>
-          </div>
+          </Link>
 
           <button
             className="md:hidden"
@@ -39,59 +35,96 @@ export default function Header() {
           </button>
 
           <nav className="hidden md:flex space-x-8">
-            <button
-              onClick={() => scrollToSection('home')}
-              className="hover:text-[#E6B31E] transition-colors duration-300 font-medium"
+            <Link
+              to="/"
+              className={`hover:text-[#E6B31E] transition-colors duration-300 font-medium ${
+                isActive('/') ? 'text-[#E6B31E]' : ''
+              }`}
             >
               Home
-            </button>
-            <button
-              onClick={() => scrollToSection('winner')}
-              className="hover:text-[#E6B31E] transition-colors duration-300 font-medium"
+            </Link>
+            <Link
+              to="/about"
+              className={`hover:text-[#E6B31E] transition-colors duration-300 font-medium ${
+                isActive('/about') ? 'text-[#E6B31E]' : ''
+              }`}
             >
-              Season 1 Winner
-            </button>
-            <button
-              onClick={() => scrollToSection('register')}
-              className="hover:text-[#E6B31E] transition-colors duration-300 font-medium"
+              About
+            </Link>
+            <Link
+              to="/owners"
+              className={`hover:text-[#E6B31E] transition-colors duration-300 font-medium ${
+                isActive('/owners') ? 'text-[#E6B31E]' : ''
+              }`}
+            >
+              Owners
+            </Link>
+            <Link
+              to="/register"
+              className={`hover:text-[#E6B31E] transition-colors duration-300 font-medium ${
+                isActive('/register') ? 'text-[#E6B31E]' : ''
+              }`}
             >
               Register
-            </button>
-            <button
-              onClick={() => scrollToSection('details-search')}
-              className="hover:text-[#E6B31E] transition-colors duration-300 font-medium"
+            </Link>
+            <Link
+              to="/search"
+              className={`hover:text-[#E6B31E] transition-colors duration-300 font-medium ${
+                isActive('/search') ? 'text-[#E6B31E]' : ''
+              }`}
             >
               Check Details
-            </button>
+            </Link>
           </nav>
         </div>
 
         {isMenuOpen && (
           <nav className="md:hidden pb-4 space-y-3">
-            <button
-              onClick={() => scrollToSection('home')}
-              className="block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300"
+            <Link
+              to="/"
+              onClick={() => setIsMenuOpen(false)}
+              className={`block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300 ${
+                isActive('/') ? 'text-[#E6B31E]' : ''
+              }`}
             >
               Home
-            </button>
-            <button
-              onClick={() => scrollToSection('winner')}
-              className="block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300"
+            </Link>
+            <Link
+              to="/about"
+              onClick={() => setIsMenuOpen(false)}
+              className={`block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300 ${
+                isActive('/about') ? 'text-[#E6B31E]' : ''
+              }`}
             >
-              Season 1 Winner
-            </button>
-            <button
-              onClick={() => scrollToSection('register')}
-              className="block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300"
+              About
+            </Link>
+            <Link
+              to="/owners"
+              onClick={() => setIsMenuOpen(false)}
+              className={`block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300 ${
+                isActive('/owners') ? 'text-[#E6B31E]' : ''
+              }`}
+            >
+              Owners
+            </Link>
+            <Link
+              to="/register"
+              onClick={() => setIsMenuOpen(false)}
+              className={`block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300 ${
+                isActive('/register') ? 'text-[#E6B31E]' : ''
+              }`}
             >
               Register
-            </button>
-            <button
-              onClick={() => scrollToSection('details-search')}
-              className="block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300"
+            </Link>
+            <Link
+              to="/search"
+              onClick={() => setIsMenuOpen(false)}
+              className={`block w-full text-left py-2 hover:text-[#E6B31E] transition-colors duration-300 ${
+                isActive('/search') ? 'text-[#E6B31E]' : ''
+              }`}
             >
               Check Details
-            </button>
+            </Link>
           </nav>
         )}
       </div>
