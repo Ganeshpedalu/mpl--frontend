@@ -154,7 +154,7 @@ export const FrontendDetailsProvider = ({
   return (
     <FrontendDetailsContext.Provider value={contextValue}>
       {children}
-    </FrontendDetailsContext.Provider>
+    </FrontendDetailsContext.Provider> 
   );
 };
 
