@@ -4,6 +4,20 @@ import { Loader, AlertCircle, User, Phone, Shirt, Target, Calendar, ArrowLeft, D
 import { getApiUrlWithParams } from '../config/apiConfig';
 import LazyImage from './LazyImage';
 
+interface ImageStatus {
+  profileImageExists: boolean;
+  aadhaarImageExists: boolean;
+  paymentImageExists: boolean;
+  allExist: boolean;
+}
+
+interface RegistrationImages {
+  profileImage: string;
+  aadhaarImage: string;
+  paymentImage: string;
+  status: ImageStatus;
+}
+
 interface RegistrationData {
   firstName: string;
   lastName: string;
@@ -12,9 +26,7 @@ interface RegistrationData {
   tshirtName: string;
   tshirtNumber: string;
   role: string;
-  profileImage: string;
-  aadhaarImage: string;
-  paymentImage: string;
+  images: RegistrationImages;
   createdAt: string;
 }
 
@@ -81,13 +93,35 @@ export default function RegistrationDetails() {
     fetchDetails();
   }, [mobileNumber]);
 
-  const downloadImage = useCallback((imageData: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = imageData;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadImage = useCallback(async (imageUrl: string, filename: string) => {
+    try {
+      // Check if it's a base64 data URL or a regular URL
+      if (imageUrl.startsWith('data:')) {
+        // Base64 image - direct download
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // URL image - fetch and download
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      // Fallback: open in new tab
+      window.open(imageUrl, '_blank');
+    }
   }, []);
 
   const formatDate = useCallback((dateString: string) => {
@@ -164,12 +198,12 @@ export default function RegistrationDetails() {
             <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
               <div className="relative">
                 <LazyImage
-                  src={data.profileImage}
+                  src={data.images.profileImage}
                   alt={`${data.firstName} ${data.lastName}`}
                   className="w-32 h-32 rounded-full border-4 border-[#E6B31E] object-cover shadow-lg"
                 />
                 <button
-                  onClick={() => downloadImage(data.profileImage, `profile-${data.mobileNumber}.jpg`)}
+                  onClick={() => downloadImage(data.images.profileImage, `profile-${data.mobileNumber}.jpg`)}
                   className="absolute bottom-0 right-0 bg-[#E6B31E] text-[#041955] p-2 rounded-full hover:bg-white transition-all shadow-lg"
                   title="Download Profile Image"
                 >
@@ -284,12 +318,12 @@ export default function RegistrationDetails() {
                   <h4 className="font-semibold text-[#041955] mb-3">Aadhaar Card</h4>
                   <div className="relative group">
                     <LazyImage
-                      src={data.aadhaarImage}
+                      src={data.images.aadhaarImage}
                       alt="Aadhaar Card"
                       className="w-full rounded-lg border-2 border-gray-200 object-contain max-h-64 bg-white"
                     />
                     <button
-                      onClick={() => downloadImage(data.aadhaarImage, `aadhaar-${data.mobileNumber}.png`)}
+                      onClick={() => downloadImage(data.images.aadhaarImage, `aadhaar-${data.mobileNumber}.png`)}
                       className="absolute top-2 right-2 bg-[#041955] text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#062972]"
                       title="Download Aadhaar Card"
                     >
@@ -303,12 +337,12 @@ export default function RegistrationDetails() {
                   <h4 className="font-semibold text-[#041955] mb-3">Payment Screenshot</h4>
                   <div className="relative group">
                     <LazyImage
-                      src={data.paymentImage}
+                      src={data.images.paymentImage}
                       alt="Payment Screenshot"
                       className="w-full rounded-lg border-2 border-gray-200 object-contain max-h-64 bg-white"
                     />
                     <button
-                      onClick={() => downloadImage(data.paymentImage, `payment-${data.mobileNumber}.jpg`)}
+                      onClick={() => downloadImage(data.images.paymentImage, `payment-${data.mobileNumber}.jpg`)}
                       className="absolute top-2 right-2 bg-[#041955] text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#062972]"
                       title="Download Payment Screenshot"
                     >
