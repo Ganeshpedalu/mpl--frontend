@@ -17,6 +17,7 @@ export interface DashboardDetails {
   lastDate: string;
   seasonYear: number;
   auctionDate?: string;
+  notice?: string;
 }
 
 export type HighlightMediaType = "image" | "video";

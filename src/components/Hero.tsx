@@ -91,6 +91,38 @@ export default function Hero() {
               <div className="text-sm text-gray-300">{seasonYear ? 'Season Year' : 'Season'}</div>
             </div>
           </div>
+
+          {/* Refund Notice */}
+          {dashboard?.notice && (
+            <div className="mt-12 max-w-6xl mx-auto overflow-hidden">
+              <div className="bg-[#E6B31E]/20 backdrop-blur-md rounded-lg p-4 border border-[#E6B31E]/50">
+                <div className="flex whitespace-nowrap">
+                  <div className="flex animate-marquee">
+                    <span className="text-base sm:text-lg text-white font-semibold mx-8">
+                      {dashboard.notice}
+                    </span>
+                    <span className="text-base sm:text-lg text-white font-semibold mx-8">
+                      {dashboard.notice}
+                    </span>
+                    <span className="text-base sm:text-lg text-white font-semibold mx-8">
+                      {dashboard.notice}
+                    </span>
+                  </div>
+                  <div className="flex animate-marquee">
+                    <span className="text-base sm:text-lg text-white font-semibold mx-8">
+                      {dashboard.notice}
+                    </span>
+                    <span className="text-base sm:text-lg text-white font-semibold mx-8">
+                      {dashboard.notice}
+                    </span>
+                    <span className="text-base sm:text-lg text-white font-semibold mx-8">
+                      {dashboard.notice}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
