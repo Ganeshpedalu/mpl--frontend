@@ -136,6 +136,7 @@ export const FrontendDetailsProvider = ({
     }
   }, []);
 
+  
   useEffect(() => {
     if (fetchedRef.current) return; 
     fetchedRef.current = true;
