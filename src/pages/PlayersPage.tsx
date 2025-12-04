@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader, AlertCircle, User, Phone, Shirt, Target, ArrowLeft, Users, ChevronLeft, ChevronRight, X, Crown, ShoppingCart, UserCheck, Mail, Filter, Search, Wallet } from 'lucide-react';
+import { Loader, AlertCircle, User, Phone, Shirt, Target, ArrowLeft, Users, ChevronLeft, ChevronRight, X, Crown, ShoppingCart, UserCheck, Mail, Filter, Search, Wallet, Tag } from 'lucide-react';
 import { getApiUrl } from '../config/apiConfig';
 import LazyImage from '../components/LazyImage';
 import { useOwners, type OwnerData } from '../context/OwnersContext';
@@ -9,6 +9,12 @@ interface RegistrationImages {
   profileImage: string;
   aadhaarImage: string;
   paymentImage: string;
+}
+
+interface CategoryData {
+  id: string;
+  name: string;
+  basePrice: number;
 }
 
 interface PlayerData {
@@ -23,9 +29,16 @@ interface PlayerData {
   createdAt: string;
   isSold?: boolean;
   isIconPlayer?: boolean;
-  ownerId?: string | OwnerData;
+  ownerId?: string | OwnerData | null;
   owner?: OwnerData;
   bidAmount?: number;
+  categoryId?: {
+    _id: string;
+    name: string;
+    basePrice: number;
+  } | null;
+  category?: CategoryData;
+  isOwner?: boolean;
 }
 
 interface PlayersApiResponse {
@@ -65,10 +78,6 @@ export default function PlayersPage() {
   
   // Use owners from context (cached, no repeated API calls)
   const { owners, loading: loadingOwners, refresh: refreshOwners } = useOwners();
-  
-  // Ref to prevent unnecessary API calls
-  const filtersRef = useRef(filters);
-  filtersRef.current = filters;
 
   // Memoized request body to avoid unnecessary API calls
   const requestBody = useMemo(() => {
@@ -153,6 +162,8 @@ export default function PlayersPage() {
     }
   }, []); // Remove requestBody dependency to prevent recreation
 
+  // Note: Categories are fetched from the players API response, no separate fetch needed
+
   // Fetch players when filters change
   useEffect(() => {
     // Clear any existing polling interval
@@ -190,8 +201,24 @@ export default function PlayersPage() {
     });
   }, []);
 
+  // Get base price for a player (from category, default to 0)
+  const getBasePrice = useCallback((player: PlayerData | null): number => {
+    if (!player) return 0;
+    
+    // Prefer `category` field (formatted), fallback to `categoryId` (raw)
+    if (player.category) {
+      return player.category.basePrice;
+    } else if (player.categoryId) {
+      return player.categoryId.basePrice;
+    }
+    
+    return 0;
+  }, []);
+
   const handlePlayerClick = (playerIndex: number) => {
-    setBidAmount(0); // Reset counter when opening a player modal
+    const player = allPlayers[playerIndex];
+    const basePrice = getBasePrice(player);
+    setBidAmount(basePrice); // Set counter to base price when opening a player modal
     setSelectedPlayerIndex(playerIndex);
     setIsModalOpen(true);
   };
@@ -208,31 +235,171 @@ export default function PlayersPage() {
     setSuccessMessage(null);
   }, []);
 
+  // Helper function to extract category ID from player (memoized)
+  const getPlayerCategoryId = useCallback((player: PlayerData): string => {
+    if (player.category) {
+      return player.category.id;
+    } else if (player.categoryId && player.categoryId._id) {
+      return player.categoryId._id;
+    }
+    return 'uncategorized';
+  }, []);
+
+  // Helper function to extract category data from player (memoized)
+  const getPlayerCategoryData = useCallback((player: PlayerData): CategoryData | null => {
+    if (player.category) {
+      return player.category;
+    } else if (player.categoryId && player.categoryId._id) {
+      return {
+        id: player.categoryId._id,
+        name: player.categoryId.name,
+        basePrice: player.categoryId.basePrice
+      };
+    }
+    return null;
+  }, []);
+
+
+  // Group players by category (always, not just when filtering by ownerId)
+  const playersGroupedByCategory = useMemo(() => {
+    if (players.length === 0) {
+      return [];
+    }
+
+    const grouped = new Map<string, { category: CategoryData; players: PlayerData[] }>();
+    
+    // Group players by category using optimized helper
+    players.forEach(player => {
+      const categoryData = getPlayerCategoryData(player);
+      const categoryId = getPlayerCategoryId(player);
+      
+      if (categoryData) {
+        if (!grouped.has(categoryId)) {
+          grouped.set(categoryId, {
+            category: categoryData,
+            players: []
+          });
+        }
+        grouped.get(categoryId)!.players.push(player);
+      } else {
+        // Players without category go to "Uncategorized"
+        if (!grouped.has('uncategorized')) {
+          grouped.set('uncategorized', {
+            category: { id: 'uncategorized', name: 'Uncategorized', basePrice: 0 },
+            players: []
+          });
+        }
+        grouped.get('uncategorized')!.players.push(player);
+      }
+    });
+
+    // Convert to array and sort by category name
+    return Array.from(grouped.values()).sort((a, b) => {
+      if (a.category.id === 'uncategorized') return 1;
+      if (b.category.id === 'uncategorized') return -1;
+      return a.category.name.localeCompare(b.category.name);
+    });
+  }, [players, getPlayerCategoryId, getPlayerCategoryData]);
+
+  // Map of category ID to players list for allPlayers (for O(1) lookups)
+  const allPlayersByCategoryMap = useMemo(() => {
+    const map = new Map<string, PlayerData[]>();
+    allPlayers.forEach(player => {
+      const categoryId = getPlayerCategoryId(player);
+      if (!map.has(categoryId)) {
+        map.set(categoryId, []);
+      }
+      map.get(categoryId)!.push(player);
+    });
+    return map;
+  }, [allPlayers, getPlayerCategoryId]);
+
+  // Map of mobile number to index in allPlayers (for O(1) lookups)
+  const playerIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    allPlayers.forEach((player, index) => {
+      map.set(player.mobileNumber, index);
+    });
+    return map;
+  }, [allPlayers]);
+
+  // Find next/previous player in SAME category only (not across categories) - OPTIMIZED
+  const findNextPlayerInCategoryOrder = useCallback((currentIndex: number, direction: 'next' | 'prev'): number | null => {
+    if (allPlayers.length === 0 || currentIndex < 0 || currentIndex >= allPlayers.length) {
+      return null;
+    }
+    
+    // Find current player
+    const currentPlayer = allPlayers[currentIndex];
+    if (!currentPlayer) return null;
+    
+    // Get current player's category ID using helper
+    const currentCategoryId = getPlayerCategoryId(currentPlayer);
+    
+    // Get all players in the SAME category only using pre-computed map (O(1) lookup)
+    const playersInSameCategory = allPlayersByCategoryMap.get(currentCategoryId);
+    if (!playersInSameCategory || playersInSameCategory.length === 0) {
+      return null;
+    }
+    
+    // Find current player's index in the same category
+    const currentIndexInCategory = playersInSameCategory.findIndex(p => p.mobileNumber === currentPlayer.mobileNumber);
+    if (currentIndexInCategory === -1) return null;
+    
+    if (direction === 'next') {
+      // Go to next player in SAME category only
+      if (currentIndexInCategory < playersInSameCategory.length - 1) {
+        const nextPlayer = playersInSameCategory[currentIndexInCategory + 1];
+        // Use pre-computed index map for O(1) lookup
+        return playerIndexMap.get(nextPlayer.mobileNumber) ?? null;
+      }
+      return null; // No next player in this category
+    } else {
+      // Go to previous player in SAME category only
+      if (currentIndexInCategory > 0) {
+        const prevPlayer = playersInSameCategory[currentIndexInCategory - 1];
+        // Use pre-computed index map for O(1) lookup
+        return playerIndexMap.get(prevPlayer.mobileNumber) ?? null;
+      }
+      return null; // No previous player in this category
+    }
+  }, [allPlayers, allPlayersByCategoryMap, playerIndexMap, getPlayerCategoryId]);
+
   const handlePreviousPlayer = useCallback(() => {
-    if (selectedPlayerIndex !== null && selectedPlayerIndex > 0) {
-      setBidAmount(0);
-      setModalDirection('right');
-      requestAnimationFrame(() => {
+    if (selectedPlayerIndex !== null) {
+      const prevIndex = findNextPlayerInCategoryOrder(selectedPlayerIndex, 'prev');
+      if (prevIndex !== null && prevIndex >= 0) {
+        const prevPlayer = allPlayers[prevIndex];
+        const basePrice = getBasePrice(prevPlayer);
+        setBidAmount(basePrice);
+        // Update index immediately, then set direction for animation
+        setSelectedPlayerIndex(prevIndex);
+        setModalDirection('right');
+        // Reset direction after animation
         setTimeout(() => {
-          setSelectedPlayerIndex(selectedPlayerIndex - 1);
           setModalDirection('none');
         }, 300);
-      });
+      }
     }
-  }, [selectedPlayerIndex]);
+  }, [selectedPlayerIndex, allPlayers, getBasePrice, findNextPlayerInCategoryOrder, allPlayersByCategoryMap, getPlayerCategoryId]);
 
   const handleNextPlayer = useCallback(() => {
-    if (selectedPlayerIndex !== null && selectedPlayerIndex < allPlayers.length - 1) {
-      setBidAmount(0);
-      setModalDirection('left');
-      requestAnimationFrame(() => {
+    if (selectedPlayerIndex !== null) {
+      const nextIndex = findNextPlayerInCategoryOrder(selectedPlayerIndex, 'next');
+      if (nextIndex !== null && nextIndex < allPlayers.length) {
+        const nextPlayer = allPlayers[nextIndex];
+        const basePrice = getBasePrice(nextPlayer);
+        setBidAmount(basePrice);
+        // Update index immediately, then set direction for animation
+        setSelectedPlayerIndex(nextIndex);
+        setModalDirection('left');
+        // Reset direction after animation
         setTimeout(() => {
-          setSelectedPlayerIndex(selectedPlayerIndex + 1);
           setModalDirection('none');
         }, 300);
-      });
+      }
     }
-  }, [selectedPlayerIndex, allPlayers.length]);
+  }, [selectedPlayerIndex, allPlayers, getBasePrice, findNextPlayerInCategoryOrder, allPlayersByCategoryMap, getPlayerCategoryId]);
 
   const handleFilterChange = (key: keyof typeof filters, value: string | 'true' | 'false' | 'all' | boolean) => {
     setFilters(prev => ({
@@ -312,11 +479,19 @@ export default function PlayersPage() {
         // Find the owner from the owners array (use memoized map for O(1) lookup)
         const assignedOwner = assignedOwnerMap.get(ownerId);
         
-        // Store the ORIGINAL next player's mobile number BEFORE refetch
-        // This is the key - we want to go to the player that was originally next
-        const currentIndex = selectedPlayerIndex;
-        const originalNextPlayerMobile = currentIndex !== null && currentIndex < allPlayers.length - 1
-          ? allPlayers[currentIndex + 1]?.mobileNumber
+        // Store the NEXT player's mobile number BEFORE refetch (remember the next slide)
+        const currentPlayerMobile = selectedPlayer.mobileNumber;
+        const currentCategoryId = getPlayerCategoryId(selectedPlayer);
+        
+        // Get all players in the same category BEFORE refetch using pre-computed map
+        const playersInSameCategoryBefore = allPlayersByCategoryMap.get(currentCategoryId) || [];
+        
+        // Find current player's index in category BEFORE refetch
+        const currentIndexInCategory = playersInSameCategoryBefore.findIndex(p => p.mobileNumber === currentPlayerMobile);
+        
+        // Store the NEXT player's mobile number (the one we want to navigate to)
+        const nextPlayerMobile = currentIndexInCategory !== -1 && currentIndexInCategory < playersInSameCategoryBefore.length - 1
+          ? playersInSameCategoryBefore[currentIndexInCategory + 1]?.mobileNumber
           : null;
         
         // Refetch players and owners to get updated data from server (real-time update)
@@ -333,47 +508,42 @@ export default function PlayersPage() {
             amount: bidAmount,
           });
           
-          // Reset bid amount after assignment
-          setBidAmount(0);
+          // Note: Don't reset bid amount here - it will be set to next player's base price when navigating
           
           // Clear any existing timeout
           if (successTimeoutRef.current) {
             clearTimeout(successTimeoutRef.current);
           }
           
-          // Auto-advance to next player after 4 seconds
+          // Auto-advance to next player after 4 seconds (using remembered next player)
           successTimeoutRef.current = setTimeout(() => {
             setSuccessMessage(null);
             
             // Get the latest players list from ref (always up-to-date)
             const latestPlayers = allPlayersRef.current;
             
-            // Find the original next player in the updated list by mobile number
-            let nextIndex: number | null = null;
-            
-            if (originalNextPlayerMobile) {
-              // Find the player that was originally next in the updated list
-              nextIndex = latestPlayers.findIndex(p => p.mobileNumber === originalNextPlayerMobile);
-            }
-            
-            // Fallback: if we can't find the original next player, use index + 1
-            if (nextIndex === -1 && currentIndex !== null && currentIndex < latestPlayers.length - 1) {
-              nextIndex = currentIndex + 1;
-            }
-            
-            // Navigate to next player if found
-            if (nextIndex !== null && nextIndex !== -1 && nextIndex < latestPlayers.length) {
-              setBidAmount(0);
-              setModalDirection('left');
-              // Use requestAnimationFrame for smoother transition
-              requestAnimationFrame(() => {
+            // Find the remembered next player in the updated list using Map for O(1) lookup
+            if (nextPlayerMobile) {
+              // Use findIndex (could be optimized with a Map, but this is fine for typical dataset sizes)
+              const nextIndex = latestPlayers.findIndex(p => p.mobileNumber === nextPlayerMobile);
+              
+              if (nextIndex !== -1) {
+                const nextPlayer = latestPlayers[nextIndex];
+                const nextBasePrice = getBasePrice(nextPlayer);
+                setBidAmount(nextBasePrice);
+                // Update index immediately, then set direction for animation
+                setSelectedPlayerIndex(nextIndex);
+                setModalDirection('left');
+                // Reset direction after animation
                 setTimeout(() => {
-                  setSelectedPlayerIndex(nextIndex);
                   setModalDirection('none');
                 }, 300);
-              });
+              } else {
+                // Next player not found in updated list (might have been filtered out), close modal
+                handleCloseModal();
+              }
             } else {
-              // No next player available, close modal
+              // No next player in category, close modal
               handleCloseModal();
             }
             successTimeoutRef.current = null; // Clear ref after execution
@@ -390,20 +560,39 @@ export default function PlayersPage() {
     }
   };
 
+  // Memoize selected player to avoid unnecessary recalculations
+  const selectedPlayer = useMemo(() => {
+    return selectedPlayerIndex !== null && allPlayers.length > 0 && selectedPlayerIndex < allPlayers.length
+      ? allPlayers[selectedPlayerIndex] 
+      : null;
+  }, [selectedPlayerIndex, allPlayers]);
+
+  // Get current player's base price
+  const currentBasePrice = useMemo(() => {
+    return getBasePrice(selectedPlayer);
+  }, [selectedPlayer, getBasePrice]);
+
   // Handle keyboard navigation, body scroll lock, and arrow keys for bid amount
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Up arrow key: increment bid amount by 500 (works everywhere on the page)
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setBidAmount(prev => Math.max(0, prev + 500));
+        const basePrice = currentBasePrice;
+        setBidAmount(prev => {
+          // If current amount is below base price, set to base price first
+          const currentAmount = prev < basePrice ? basePrice : prev;
+          return currentAmount + 500;
+        });
         return;
       }
       
       // Down arrow key: decrement bid amount by 500 (works everywhere on the page)
+      // But don't go below base price
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setBidAmount(prev => Math.max(0, prev - 500));
+        const basePrice = currentBasePrice;
+        setBidAmount(prev => Math.max(basePrice, prev - 500));
         return;
       }
       
@@ -431,19 +620,17 @@ export default function PlayersPage() {
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, selectedPlayerIndex, allPlayers.length]);
+  }, [isModalOpen, selectedPlayerIndex, allPlayers.length, currentBasePrice, handleCloseModal, handlePreviousPlayer, handleNextPlayer]);
 
-  const getPlayerIndex = (player: PlayerData) => {
-    const index = allPlayers.findIndex(p => p.mobileNumber === player.mobileNumber);
-    return index >= 0 ? index + 1 : 0;
-  };
+  // Initialize bid amount to base price when selected player changes (optimized)
+  useEffect(() => {
+    if (selectedPlayer && isModalOpen) {
+      const basePrice = getBasePrice(selectedPlayer);
+      // Only update if different to avoid unnecessary state updates
+      setBidAmount(prev => prev !== basePrice ? basePrice : prev);
+    }
+  }, [selectedPlayer?.mobileNumber, isModalOpen, getBasePrice]); // Use mobileNumber as dependency instead of whole object
 
-  // Memoize selected player to avoid unnecessary recalculations
-  const selectedPlayer = useMemo(() => {
-    return selectedPlayerIndex !== null && allPlayers.length > 0 && selectedPlayerIndex < allPlayers.length
-      ? allPlayers[selectedPlayerIndex] 
-      : null;
-  }, [selectedPlayerIndex, allPlayers]);
 
   // Memoize owner slices to avoid recalculating on every render
   const ownerSlices = useMemo(() => {
@@ -638,10 +825,190 @@ export default function PlayersPage() {
           </div>
         </div>
 
-        {/* Players Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          {players.map((player, cardIndex) => {
-            const playerIndex = getPlayerIndex(player);
+        {/* Players Grid - Always Grouped by Category */}
+        {playersGroupedByCategory.length > 0 ? (
+          <div className="space-y-8">
+            {playersGroupedByCategory.map((group, groupIndex) => (
+              <div key={group.category.id} className="animate-fade-in" style={{ animationDelay: `${groupIndex * 100}ms` }}>
+                {/* Category Header */}
+                <div className="mb-6 flex items-center justify-between bg-gradient-to-r from-[#041955] to-[#062972] rounded-xl p-4 md:p-6 shadow-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-[#E6B31E] p-3 rounded-lg">
+                      <Tag className="w-6 h-6 md:w-8 md:h-8 text-[#041955]" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-white">
+                        Category {group.category.name}
+                      </h2>
+                      <p className="text-sm md:text-base text-gray-300 mt-1">
+                        Base Price: ₹{group.category.basePrice.toLocaleString('en-IN')} • {group.players.length} player{group.players.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Players in this category */}
+                {group.players.length === 0 ? (
+                  <div className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl p-8 md:p-12 text-center border-2 border-dashed border-gray-300">
+                    <ShoppingCart className="w-16 h-16 md:w-20 md:h-20 mx-auto text-gray-400 mb-4" />
+                    <h3 className="text-xl md:text-2xl font-bold text-gray-600 mb-2">
+                      All Players Sold
+                    </h3>
+                    <p className="text-gray-500 text-sm md:text-base">
+                      All players in Category {group.category.name} have been sold.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                    {group.players.map((player, cardIndex) => {
+                    const arrayIndex = allPlayers.findIndex(p => p.mobileNumber === player.mobileNumber);
+                    const isAnimated = cardAnimations[cardIndex] || false;
+                    return (
+                      <div
+                        key={player.mobileNumber}
+                        onClick={() => arrayIndex >= 0 && handlePlayerClick(arrayIndex)}
+                        className={`
+                          bg-white rounded-xl shadow-lg overflow-hidden 
+                          transition-all duration-500 cursor-pointer 
+                          transform relative
+                          ${isAnimated 
+                            ? 'opacity-100 translate-y-0 scale-100' 
+                            : 'opacity-0 translate-y-10 scale-95'
+                          }
+                          hover:shadow-2xl hover:-translate-y-2 hover:scale-105
+                        `}
+                        style={{
+                          animationDelay: `${cardIndex * 50}ms`,
+                          transitionDelay: `${cardIndex * 30}ms`
+                        }}
+                      >
+
+                        {/* Status Badges */}
+                        <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
+                          {player.isIconPlayer && (
+                            <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                              <Crown className="w-3 h-3" />
+                              Icon
+                            </div>
+                          )}
+                          {player.isSold && (
+                            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                              <ShoppingCart className="w-3 h-3" />
+                              Sold
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Player Card */}
+                        <div className="relative">
+                          <div className="bg-gradient-to-r from-[#041955] to-[#062972] p-4 pb-8 relative overflow-hidden">
+                            {/* Animated background effect */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-[#E6B31E]/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500"></div>
+                            
+                            <div className="flex flex-col items-center relative z-10">
+                              <div className="relative group">
+                                <LazyImage
+                                  src={player.images.profileImage}
+                                  alt={`${player.firstName} ${player.lastName}`}
+                                  className="w-24 h-24 rounded-full border-4 border-[#E6B31E] object-cover shadow-lg transform transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
+                                />
+                                <div className="absolute inset-0 rounded-full bg-[#E6B31E] opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-300"></div>
+                              </div>
+                              <div className="mt-4 text-center">
+                                <h3 className="text-xl font-bold text-white transform transition-all duration-300 group-hover:scale-105">
+                                  {player.firstName} {player.lastName}
+                                </h3>
+                                <p className="text-sm text-gray-300 mt-1">#{player.tshirtNumber}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Player Details */}
+                          <div className="p-4 space-y-3">
+                            <div className="flex items-center space-x-2 text-sm">
+                              <Target className="w-4 h-4 text-[#E6B31E]" />
+                              <span className="text-gray-700 font-medium">{player.role}</span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 text-sm">
+                              <Shirt className="w-4 h-4 text-[#E6B31E]" />
+                              <span className="text-gray-700">
+                                Size: <span className="font-semibold">{player.tshirtSize}</span>
+                              </span>
+                            </div>
+
+                            {player.tshirtName && (
+                              <div className="flex items-center space-x-2 text-sm">
+                                <Shirt className="w-4 h-4 text-[#E6B31E]" />
+                                <span className="text-gray-700">
+                                  Name: <span className="font-semibold">{player.tshirtName}</span>
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center space-x-2 text-sm">
+                              <Phone className="w-4 h-4 text-[#E6B31E]" />
+                              <span className="text-gray-600">{player.mobileNumber}</span>
+                            </div>
+
+                            {/* Bid Amount - Show if player is sold */}
+                            {player.isSold && player.bidAmount !== undefined && (
+                              <div className="pt-2 border-t border-gray-200">
+                                <div className="flex items-center space-x-2 text-xs mb-2">
+                                  <ShoppingCart className="w-4 h-4 text-[#E6B31E]" />
+                                  <span className="text-gray-600 font-semibold">Sold For:</span>
+                                </div>
+                                <div className="pl-6">
+                                  <p className="text-lg font-bold text-[#041955]">
+                                    ₹{player.bidAmount.toLocaleString('en-IN')}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Owner Information */}
+                            {player.owner && (
+                              <div className="pt-2 border-t border-gray-200">
+                                <div className="flex items-center space-x-2 text-xs mb-2">
+                                  <UserCheck className="w-4 h-4 text-[#E6B31E]" />
+                                  <span className="text-gray-600 font-semibold">Owner:</span>
+                                </div>
+                                <div className="pl-6 space-y-1">
+                                  <p className="text-sm font-bold text-[#041955]">{player.owner.name}</p>
+                                  {player.owner.teamName && (
+                                    <p className="text-xs text-gray-600">{player.owner.teamName}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="pt-2 border-t border-gray-200">
+                              <p className="text-xs text-gray-500">
+                                Registered: {formatDate(player.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          // No players to display
+          <div className="text-center py-12">
+            <Users className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-600 text-lg">No players found</p>
+          </div>
+        )}
+
+        {/* Legacy regular grid view - removed, always use category grouping */}
+        {false && players.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {players.map((player, cardIndex) => {
             const arrayIndex = allPlayers.findIndex(p => p.mobileNumber === player.mobileNumber);
             const isAnimated = cardAnimations[cardIndex] || false;
             return (
@@ -663,12 +1030,6 @@ export default function PlayersPage() {
                   transitionDelay: `${cardIndex * 30}ms`
                 }}
               >
-                {/* Index Badge */}
-                {playerIndex > 0 && (
-                  <div className="absolute top-2 left-2 z-10 bg-gradient-to-r from-[#E6B31E] to-[#d4a017] text-[#041955] font-bold text-sm px-3 py-1 rounded-full shadow-lg transform hover:scale-110 transition-transform animate-pulse-slow">
-                    #{playerIndex}
-                  </div>
-                )}
 
                 {/* Status Badges */}
                 <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
@@ -775,11 +1136,12 @@ export default function PlayersPage() {
                     </p>
                   </div>
                 </div>
+                </div>
               </div>
-            </div>
             );
           })}
-        </div>
+          </div>
+        )}
 
         {/* Modal for Player Details */}
         {isModalOpen && selectedPlayer && (
@@ -1027,7 +1389,7 @@ export default function PlayersPage() {
                 {/* Center: Player Details */}
                 <div className="flex-shrink-0 w-full max-w-4xl order-2 md:order-none relative">
                   {/* Navigation Arrows - Positioned relative to center section */}
-                  {selectedPlayerIndex !== null && selectedPlayerIndex > 0 && (
+                  {selectedPlayerIndex !== null && findNextPlayerInCategoryOrder(selectedPlayerIndex, 'prev') !== null && (
                     <button
                       onClick={handlePreviousPlayer}
                       className="absolute left-1 md:-left-12 lg:-left-16 top-1/2 -translate-y-1/2 z-30 bg-white/95 backdrop-blur-sm rounded-full p-2 md:p-3 shadow-xl hover:bg-white transition-all hover:scale-110 active:scale-95"
@@ -1037,7 +1399,7 @@ export default function PlayersPage() {
                     </button>
                   )}
 
-                  {selectedPlayerIndex !== null && selectedPlayerIndex < allPlayers.length - 1 && (
+                  {selectedPlayerIndex !== null && findNextPlayerInCategoryOrder(selectedPlayerIndex, 'next') !== null && (
                     <button
                       onClick={handleNextPlayer}
                       className="absolute right-1 md:-right-12 lg:-right-16 top-1/2 -translate-y-1/2 z-30 bg-white/95 backdrop-blur-sm rounded-full p-2 md:p-3 shadow-xl hover:bg-white transition-all hover:scale-110 active:scale-95"
@@ -1099,10 +1461,16 @@ export default function PlayersPage() {
                         <div className="relative group">
                           <div className="absolute inset-0 bg-[#E6B31E] rounded-full blur-2xl opacity-50 animate-pulse"></div>
                           <img
+                            key={selectedPlayer.mobileNumber} // Force remount when player changes
                             src={selectedPlayer.images.profileImage}
                             alt={`${selectedPlayer.firstName} ${selectedPlayer.lastName}`}
                             className="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 rounded-full border-4 border-[#E6B31E] object-cover shadow-2xl transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 relative z-10"
                             loading="eager"
+                            onError={(e) => {
+                              // Fallback if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23ddd" width="200" height="200"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="18" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                            }}
                           />
                         </div>
                         <div className="flex-1 text-center md:text-left animate-slide-up" style={{ animationDelay: '0.2s' }}>

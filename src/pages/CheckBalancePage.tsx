@@ -1,6 +1,6 @@
 import { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader, Wallet, ArrowLeft, AlertCircle, TrendingUp, Users } from 'lucide-react';
+import { Loader, Wallet, ArrowLeft, AlertCircle, Users } from 'lucide-react';
 import { getApiUrl } from '../config/apiConfig';
 
 const Header = lazy(() => import('../components/Header'));
@@ -108,8 +108,6 @@ export default function CheckBalancePage() {
     };
   }, [fetchOwners]);
 
-  const totalPurseValue = owners.reduce((sum, owner) => sum + (owner.purseValue ?? 0), 0);
-  const averagePurseValue = owners.length > 0 ? totalPurseValue / owners.length : 0;
 
   if (loading) {
     return (
@@ -184,34 +182,14 @@ export default function CheckBalancePage() {
               Current purse values for all owners
             </p>
             
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Summary Card */}
+            <div className="flex justify-center mb-8">
               <div className="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-gray-600">Total Owners</span>
                   <Users className="w-6 h-6 text-[#041955]" />
                 </div>
                 <p className="text-3xl font-bold text-[#041955]">{owners.length}</p>
-              </div>
-              
-              <div className="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-600">Total Purse Value</span>
-                  <TrendingUp className="w-6 h-6 text-[#E6B31E]" />
-                </div>
-                <p className="text-3xl font-bold text-[#041955]">
-                  ₹{totalPurseValue.toLocaleString('en-IN')}
-                </p>
-              </div>
-              
-              <div className="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition-all">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-600">Average Balance</span>
-                  <Wallet className="w-6 h-6 text-[#041955]" />
-                </div>
-                <p className="text-3xl font-bold text-[#041955]">
-                  ₹{Math.round(averagePurseValue).toLocaleString('en-IN')}
-                </p>
               </div>
             </div>
           </div>

@@ -11,6 +11,7 @@ export interface ApiConfig {
     players: string;
     owner: string;
     owners: string;
+    categories: string;
   };
 }
 
@@ -25,6 +26,7 @@ const developmentConfig: ApiConfig = {
     players: '/api/players',
     owner: '/api/owner',
     owners: '/api/owners',
+    categories: '/api/categories',
   },
 };
 
@@ -39,6 +41,7 @@ const productionConfig: ApiConfig = {
     players: '/api/players',
     owner: '/api/owner',
     owners: '/api/owners',
+    categories: '/api/categories',
   },
 };
 
@@ -64,6 +67,7 @@ export const apiConfig: ApiConfig = envApiUrl
         players: '/api/players',
         owner: '/api/owner',
         owners: '/api/owners',
+        categories: '/api/categories',
       },
     }
   : useLocalhost
