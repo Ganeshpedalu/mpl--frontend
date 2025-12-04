@@ -11,7 +11,7 @@ export interface OwnerData {
   season?: string;
   imageUrl?: string;
 }
-
+ 
 interface OwnersApiResponse {
   success: boolean;
   data: OwnerData[];
