@@ -24,7 +24,7 @@ const LazyImage = memo(({ src, alt, className = '', placeholder }: LazyImageProp
           }
         });
       },
-      { rootMargin: '50px' }
+      { rootMargin: '200px' } // Load images earlier (200px before they come into view)
     );
 
     if (imgRef.current) {

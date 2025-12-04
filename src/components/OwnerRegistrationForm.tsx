@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Upload, CheckCircle, AlertCircle, Loader, User, Mail, Phone, FileText, Users, Calendar, Image as ImageIcon } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, Loader, User, Mail, Phone, FileText, Users, Calendar, Image as ImageIcon, Wallet } from 'lucide-react';
 
 import { getApiUrl } from '../config/apiConfig';
 
@@ -10,6 +10,7 @@ interface OwnerFormData {
   bio: string;
   teamName: string;
   season: string;
+  purseValue: string;
   imageFile: File | null;
 }
 
@@ -21,6 +22,7 @@ export default function OwnerRegistrationForm() {
     bio: '',
     teamName: '',
     season: '',
+    purseValue: '',
     imageFile: null,
   });
 
@@ -64,6 +66,15 @@ export default function OwnerRegistrationForm() {
 
     if (!formData.season.trim()) {
       newErrors.season = 'Season is required';
+    }
+
+    if (!formData.purseValue.trim()) {
+      newErrors.purseValue = 'Purse value is required';
+    } else {
+      const purseValueNum = parseFloat(formData.purseValue);
+      if (isNaN(purseValueNum) || purseValueNum < 0) {
+        newErrors.purseValue = 'Purse value must be a valid positive number';
+      }
     }
 
     if (!formData.imageFile) {
@@ -129,6 +140,7 @@ export default function OwnerRegistrationForm() {
       form.append('bio', formData.bio);
       form.append('teamName', formData.teamName);
       form.append('season', formData.season);
+      form.append('purseValue', formData.purseValue);
 
       if (formData.imageFile) {
         form.append('imageFile', formData.imageFile);
@@ -166,6 +178,7 @@ export default function OwnerRegistrationForm() {
           bio: '',
           teamName: '',
           season: '',
+          purseValue: '',
           imageFile: null,
         });
         setImagePreview(null);
@@ -191,6 +204,7 @@ export default function OwnerRegistrationForm() {
       bio: '',
       teamName: '',
       season: '',
+      purseValue: '',
       imageFile: null,
     });
     setImagePreview(null);
@@ -358,6 +372,40 @@ export default function OwnerRegistrationForm() {
             />
             {errors.season && (
               <p className="mt-1 text-sm text-red-500">{errors.season}</p>
+            )}
+          </div>
+
+          {/* Purse Value */}
+          <div>
+            <label htmlFor="purseValue" className="block text-sm font-semibold text-[#041955] mb-2">
+              <Wallet className="w-4 h-4 inline mr-2" />
+              Purse Value (₹) *
+            </label>
+            <input
+              type="number"
+              id="purseValue"
+              value={formData.purseValue}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow only positive numbers
+                if (value === '' || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0)) {
+                  handleInputChange('purseValue', value);
+                }
+              }}
+              className={`w-full px-4 py-3 rounded-lg border-2 ${
+                errors.purseValue ? 'border-red-500' : 'border-gray-300'
+              } focus:border-[#E6B31E] focus:outline-none transition-colors`}
+              placeholder="Enter purse value in rupees"
+              min="0"
+              step="1"
+            />
+            {errors.purseValue && (
+              <p className="mt-1 text-sm text-red-500">{errors.purseValue}</p>
+            )}
+            {formData.purseValue && !errors.purseValue && (
+              <p className="mt-1 text-xs text-gray-500">
+                ₹{parseFloat(formData.purseValue).toLocaleString('en-IN')}
+              </p>
             )}
           </div>
 

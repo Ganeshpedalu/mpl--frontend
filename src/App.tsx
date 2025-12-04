@@ -13,6 +13,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const OwnersPage = lazy(() => import('./pages/OwnersPage'));
 const PlayersPage = lazy(() => import('./pages/PlayersPage'));
 const OwnerRegistrationPage = lazy(() => import('./pages/OwnerRegistrationPage'));
+const CheckBalancePage = lazy(() => import('./pages/CheckBalancePage'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -39,6 +40,7 @@ function App() {
               <Route path="/owners" element={<OwnersPage />} />
               <Route path="/players" element={<PlayersPage />} />
               <Route path="/owner/register" element={<OwnerRegistrationPage />} />
+              <Route path="/check-balance" element={<CheckBalancePage />} />
             </Routes>
           </Suspense>
         </div>

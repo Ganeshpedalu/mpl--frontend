@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect, useCallback } from 'react';
+import { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react';
 import { Loader, Users, Mail, Phone, Trophy, AlertCircle } from 'lucide-react';
 import { useFrontendDetails } from '../context/FrontendDetailsContext';
 import { getApiUrl, getApiUrlWithParams } from '../config/apiConfig';
@@ -26,6 +26,7 @@ interface OwnerData {
   season: string;
   createdAt: string;
   updatedAt?: string;
+  purseValue?: number;
 }
 
 interface OwnersApiResponse {
@@ -41,13 +42,16 @@ export default function OwnersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const tournamentName = details?.dashboard?.tournamentName ?? 'MPL';
   const seasonLabel = details?.dashboard?.season ?? 'Season 2';
 
-  const fetchOwners = useCallback(async () => {
+  const fetchOwners = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       // Fetch owners with optional season filter
@@ -70,8 +74,10 @@ export default function OwnersPage() {
 
       const result: OwnersApiResponse = await response.json();
 
-      if (result.success && result.data) {
-        setOwners(result.data);
+      if (result.success) {
+        // Handle both array and empty data cases
+        const ownersData = result.data || [];
+        setOwners(ownersData);
       } else {
         throw new Error(result.message || 'Failed to fetch owners');
       }
@@ -80,12 +86,29 @@ export default function OwnersPage() {
       const errorMsg = err instanceof Error ? err.message : 'Network error. Please check your connection and try again.';
       setError(errorMsg);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [seasonLabel]);
 
   useEffect(() => {
     fetchOwners();
+    
+    // Set up polling for real-time updates (every 3 seconds)
+    pollingIntervalRef.current = setInterval(() => {
+      // Only poll if page is visible
+      if (!document.hidden) {
+        fetchOwners(true); // Silent update (don't show loading)
+      }
+    }, 3000);
+
+    // Cleanup polling on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
   }, [fetchOwners]);
 
   const handleImageError = (ownerId: string) => {
@@ -117,7 +140,7 @@ export default function OwnersPage() {
             <h2 className="text-2xl font-bold text-[#041955] mb-2">Error</h2>
             <p className="text-gray-600 mb-6">{error}</p>
             <button
-              onClick={fetchOwners}
+              onClick={() => fetchOwners()}
               className="bg-[#041955] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#062972] transition-all"
             >
               Try Again

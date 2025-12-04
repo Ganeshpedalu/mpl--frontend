@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader, AlertCircle, User, Phone, Shirt, Target, ArrowLeft, Users, ChevronLeft, ChevronRight, X, Crown, ShoppingCart, UserCheck, Mail, Filter, Search } from 'lucide-react';
+import { Loader, AlertCircle, User, Phone, Shirt, Target, ArrowLeft, Users, ChevronLeft, ChevronRight, X, Crown, ShoppingCart, UserCheck, Mail, Filter, Search, Wallet } from 'lucide-react';
 import { getApiUrl } from '../config/apiConfig';
 import LazyImage from '../components/LazyImage';
 import { useOwners, type OwnerData } from '../context/OwnersContext';
@@ -47,6 +47,9 @@ export default function PlayersPage() {
   const [modalDirection, setModalDirection] = useState<'left' | 'right' | 'none'>('none');
   const [cardAnimations, setCardAnimations] = useState<boolean[]>([]);
   
+  // Ref to track latest allPlayers for closures
+  const allPlayersRef = useRef<PlayerData[]>([]);
+  
   // Filter states
   const [filters, setFilters] = useState({
     isSold: 'false' as 'true' | 'false' | 'all',
@@ -61,7 +64,7 @@ export default function PlayersPage() {
   const [bidAmount, setBidAmount] = useState<number>(0);
   
   // Use owners from context (cached, no repeated API calls)
-  const { owners, loading: loadingOwners } = useOwners();
+  const { owners, loading: loadingOwners, refresh: refreshOwners } = useOwners();
   
   // Ref to prevent unnecessary API calls
   const filtersRef = useRef(filters);
@@ -90,18 +93,29 @@ export default function PlayersPage() {
     return body;
   }, [filters.isSold, filters.isIconPlayer, filters.ownerId, filters.search, filters.maxBidAmount]);
 
+  // Polling ref for real-time updates
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const requestBodyRef = useRef(requestBody);
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  requestBodyRef.current = requestBody; // Keep ref updated
+
   // Fetch players function (can be called manually for real-time updates)
-  const fetchPlayers = useCallback(async () => {
+  const fetchPlayers = useCallback(async (silent = false, customRequestBody?: typeof requestBody) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
+
+      // Use custom body if provided, otherwise use current requestBody from ref
+      const bodyToUse = customRequestBody || requestBodyRef.current;
 
       const response = await fetch(getApiUrl('players'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(bodyToUse),
       });
       
       if (!response.ok) {
@@ -113,13 +127,18 @@ export default function PlayersPage() {
       if (result.success && result.data) {
         setTotalCount(result.count);
         setAllPlayers(result.data);
+        allPlayersRef.current = result.data; // Update ref for closures
         setPlayers(result.data);
-        // Initialize card animations
-        setCardAnimations(new Array(result.data.length).fill(false));
-        // Trigger staggered animations
-        setTimeout(() => {
-          setCardAnimations(new Array(result.data.length).fill(true));
-        }, 100);
+        // Initialize card animations only on first load or non-silent updates
+        if (!silent) {
+          setCardAnimations(new Array(result.data.length).fill(false));
+          // Trigger staggered animations using requestAnimationFrame for better performance
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              setCardAnimations(new Array(result.data.length).fill(true));
+            }, 100);
+          });
+        }
       } else {
         throw new Error(result.message || 'Failed to fetch players');
       }
@@ -128,14 +147,37 @@ export default function PlayersPage() {
       const errorMsg = err instanceof Error ? err.message : 'Network error. Please check your connection and try again.';
       setError(errorMsg);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }, [requestBody]);
+  }, []); // Remove requestBody dependency to prevent recreation
 
   // Fetch players when filters change
   useEffect(() => {
-    fetchPlayers();
-  }, [fetchPlayers]);
+    // Clear any existing polling interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Initial fetch with current requestBody
+    fetchPlayers(false, requestBody);
+    
+    // Set up polling for real-time updates (every 3 seconds)
+    pollingIntervalRef.current = setInterval(() => {
+      // Only poll if page is visible and modal is not open
+      if (!document.hidden && !isModalOpen) {
+        fetchPlayers(true); // Silent update (uses current requestBody from ref)
+      }
+    }, 3000);
+
+    // Cleanup polling on unmount or when filters change
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [requestBody, isModalOpen, fetchPlayers]); // Now fetchPlayers is stable, so this is safe
 
   // Note: Infinite scroll removed - all filtered results are fetched at once
 
@@ -154,32 +196,43 @@ export default function PlayersPage() {
     setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
+    // Clear any pending success timeout
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
     setIsModalOpen(false);
     setSelectedPlayerIndex(null);
-  };
+    setBidAmount(0);
+    setSuccessMessage(null);
+  }, []);
 
-  const handlePreviousPlayer = () => {
+  const handlePreviousPlayer = useCallback(() => {
     if (selectedPlayerIndex !== null && selectedPlayerIndex > 0) {
-      setBidAmount(0); // Reset counter when moving to previous player
+      setBidAmount(0);
       setModalDirection('right');
-      setTimeout(() => {
-        setSelectedPlayerIndex(selectedPlayerIndex - 1);
-        setModalDirection('none');
-      }, 300);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          setSelectedPlayerIndex(selectedPlayerIndex - 1);
+          setModalDirection('none');
+        }, 300);
+      });
     }
-  };
+  }, [selectedPlayerIndex]);
 
-  const handleNextPlayer = () => {
+  const handleNextPlayer = useCallback(() => {
     if (selectedPlayerIndex !== null && selectedPlayerIndex < allPlayers.length - 1) {
-      setBidAmount(0); // Reset counter when moving to next player
+      setBidAmount(0);
       setModalDirection('left');
-      setTimeout(() => {
-        setSelectedPlayerIndex(selectedPlayerIndex + 1);
-        setModalDirection('none');
-      }, 300);
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          setSelectedPlayerIndex(selectedPlayerIndex + 1);
+          setModalDirection('none');
+        }, 300);
+      });
     }
-  };
+  }, [selectedPlayerIndex, allPlayers.length]);
 
   const handleFilterChange = (key: keyof typeof filters, value: string | 'true' | 'false' | 'all' | boolean) => {
     setFilters(prev => ({
@@ -256,15 +309,24 @@ export default function PlayersPage() {
       const result = await response.json();
 
       if (result.success) {
-        // Find the owner from the owners array
-        const assignedOwner = owners.find(o => o.id === ownerId);
+        // Find the owner from the owners array (use memoized map for O(1) lookup)
+        const assignedOwner = assignedOwnerMap.get(ownerId);
         
-        // Refetch players to get updated data from server (real-time update)
-        await fetchPlayers();
+        // Store the ORIGINAL next player's mobile number BEFORE refetch
+        // This is the key - we want to go to the player that was originally next
+        const currentIndex = selectedPlayerIndex;
+        const originalNextPlayerMobile = currentIndex !== null && currentIndex < allPlayers.length - 1
+          ? allPlayers[currentIndex + 1]?.mobileNumber
+          : null;
+        
+        // Refetch players and owners to get updated data from server (real-time update)
+        await Promise.all([
+          fetchPlayers(true), // Silent fetch to avoid loading state
+          refreshOwners() // Refresh owners to get updated purse values
+        ]);
         
         // Show congratulations message
         if (assignedOwner) {
-          const currentIndex = selectedPlayerIndex;
           setSuccessMessage({
             ownerName: assignedOwner.name,
             playerName: `${selectedPlayer.firstName} ${selectedPlayer.lastName}`,
@@ -274,20 +336,47 @@ export default function PlayersPage() {
           // Reset bid amount after assignment
           setBidAmount(0);
           
+          // Clear any existing timeout
+          if (successTimeoutRef.current) {
+            clearTimeout(successTimeoutRef.current);
+          }
+          
           // Auto-advance to next player after 4 seconds
-          setTimeout(() => {
+          successTimeoutRef.current = setTimeout(() => {
             setSuccessMessage(null);
-            // Refetch again to ensure we have latest data before navigating
-            fetchPlayers().then(() => {
-              if (currentIndex !== null && currentIndex < allPlayers.length - 1) {
-                setBidAmount(0); // Reset counter when auto-advancing to next player
-                setModalDirection('left');
+            
+            // Get the latest players list from ref (always up-to-date)
+            const latestPlayers = allPlayersRef.current;
+            
+            // Find the original next player in the updated list by mobile number
+            let nextIndex: number | null = null;
+            
+            if (originalNextPlayerMobile) {
+              // Find the player that was originally next in the updated list
+              nextIndex = latestPlayers.findIndex(p => p.mobileNumber === originalNextPlayerMobile);
+            }
+            
+            // Fallback: if we can't find the original next player, use index + 1
+            if (nextIndex === -1 && currentIndex !== null && currentIndex < latestPlayers.length - 1) {
+              nextIndex = currentIndex + 1;
+            }
+            
+            // Navigate to next player if found
+            if (nextIndex !== null && nextIndex !== -1 && nextIndex < latestPlayers.length) {
+              setBidAmount(0);
+              setModalDirection('left');
+              // Use requestAnimationFrame for smoother transition
+              requestAnimationFrame(() => {
                 setTimeout(() => {
-                  setSelectedPlayerIndex(currentIndex + 1);
+                  setSelectedPlayerIndex(nextIndex);
                   setModalDirection('none');
                 }, 300);
-              }
-            });
+              });
+            } else {
+              // No next player available, close modal
+              handleCloseModal();
+            }
+            successTimeoutRef.current = null; // Clear ref after execution
           }, 4000);
         }
       } else {
@@ -349,9 +438,28 @@ export default function PlayersPage() {
     return index >= 0 ? index + 1 : 0;
   };
 
-  const selectedPlayer = selectedPlayerIndex !== null && allPlayers.length > 0 
-    ? allPlayers[selectedPlayerIndex] 
-    : null;
+  // Memoize selected player to avoid unnecessary recalculations
+  const selectedPlayer = useMemo(() => {
+    return selectedPlayerIndex !== null && allPlayers.length > 0 && selectedPlayerIndex < allPlayers.length
+      ? allPlayers[selectedPlayerIndex] 
+      : null;
+  }, [selectedPlayerIndex, allPlayers]);
+
+  // Memoize owner slices to avoid recalculating on every render
+  const ownerSlices = useMemo(() => {
+    const midPoint = Math.ceil(owners.length / 2);
+    return {
+      left: owners.slice(0, midPoint),
+      right: owners.slice(midPoint),
+    };
+  }, [owners]);
+
+  // Memoize assigned owner lookup
+  const assignedOwnerMap = useMemo(() => {
+    const map = new Map<string, OwnerData>();
+    owners.forEach(owner => map.set(owner.id, owner));
+    return map;
+  }, [owners]);
 
   if (loading && players.length === 0) {
     return (
@@ -405,6 +513,13 @@ export default function PlayersPage() {
                 {totalCount > 0 && `${totalCount} player${totalCount !== 1 ? 's' : ''} found`}
               </p>
             </div>
+            <button
+              onClick={() => navigate('/check-balance')}
+              className="flex items-center gap-2 bg-[#041955] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#062972] transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              <Wallet className="w-5 h-5" />
+              <span>Show Balance</span>
+            </button>
           </div>
 
           {/* Filters Section */}
@@ -448,7 +563,7 @@ export default function PlayersPage() {
               </div>
             </form>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {/* Is Sold Filter */}
               <div>
                 <label className="block text-sm font-semibold text-[#041955] mb-2">
@@ -524,7 +639,7 @@ export default function PlayersPage() {
         </div>
 
         {/* Players Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
           {players.map((player, cardIndex) => {
             const playerIndex = getPlayerIndex(player);
             const arrayIndex = allPlayers.findIndex(p => p.mobileNumber === player.mobileNumber);
@@ -692,11 +807,17 @@ export default function PlayersPage() {
                     <p className="text-2xl md:text-3xl font-bold text-[#041955] mt-2">
                       {successMessage.ownerName}
                     </p>
-                    {owners.find(o => o.id === selectedPlayer.ownerId)?.teamName && (
-                      <p className="text-lg md:text-xl text-[#041955]/80 mt-2">
-                        ({owners.find(o => o.id === selectedPlayer.ownerId)?.teamName})
-                      </p>
-                    )}
+                    {(() => {
+                      const ownerId = typeof selectedPlayer.ownerId === 'string' 
+                        ? selectedPlayer.ownerId 
+                        : selectedPlayer.ownerId?.id;
+                      const owner = ownerId ? assignedOwnerMap.get(ownerId) : null;
+                      return owner?.teamName && (
+                        <p className="text-lg md:text-xl text-[#041955]/80 mt-2">
+                          ({owner.teamName})
+                        </p>
+                      );
+                    })()}
                     <div className="mt-6 pt-6 border-t-2 border-[#041955]/20">
                       <p className="text-xl md:text-2xl text-[#041955] mb-2">
                         Bid Amount
@@ -715,7 +836,7 @@ export default function PlayersPage() {
 
             <div 
               className={`
-                w-full h-full max-w-[95vw] max-h-[95vh] 
+                w-full h-full max-w-[100vw] md:max-w-[95vw] max-h-[100vh] md:max-h-[95vh] 
                 relative transform transition-all duration-500
                 ${modalDirection === 'left' ? 'translate-x-full opacity-0' : ''}
                 ${modalDirection === 'right' ? '-translate-x-full opacity-0' : ''}
@@ -727,53 +848,111 @@ export default function PlayersPage() {
               {/* Close Button */}
               <button
                 onClick={handleCloseModal}
-                className="absolute top-4 right-4 z-20 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
+                className="absolute top-2 right-2 md:top-4 md:right-4 z-20 bg-white rounded-full p-2 md:p-2 shadow-lg hover:bg-gray-100 active:bg-gray-200 transition-colors touch-manipulation"
                 aria-label="Close"
               >
-                <X className="w-6 h-6 text-[#041955]" />
+                <X className="w-5 h-5 md:w-6 md:h-6 text-[#041955]" />
               </button>
 
-              {/* Navigation Arrows */}
-              {selectedPlayerIndex !== null && selectedPlayerIndex > 0 && (
-                <button
-                  onClick={handlePreviousPlayer}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full p-3 shadow-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Previous Player"
-                >
-                  <ChevronLeft className="w-6 h-6 text-[#041955]" />
-                </button>
-              )}
+              {/* Navigation Arrows - Will be positioned relative to center section */}
 
-              {selectedPlayerIndex !== null && selectedPlayerIndex < allPlayers.length - 1 && (
-                <button
-                  onClick={handleNextPlayer}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white rounded-full p-3 shadow-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Next Player"
-                >
-                  <ChevronRight className="w-6 h-6 text-[#041955]" />
-                </button>
-              )}
+              {/* Main Layout: Owners on sides (desktop), stacked (mobile), Player in center */}
+              <div className="flex flex-col md:flex-row items-center justify-center h-full gap-2 md:gap-6 px-2 md:px-4 overflow-y-auto">
+                {/* Mobile: Owners Section Above Player (Scrollable) */}
+                <div className="md:hidden w-full order-1 mb-4">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 max-h-[200px] overflow-y-auto">
+                    <h3 className="text-white font-bold text-sm mb-3 text-center">Select Owner</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {loadingOwners ? (
+                        <div className="col-span-2 flex justify-center items-center py-4">
+                          <Loader className="w-6 h-6 animate-spin text-white" />
+                        </div>
+                      ) : owners.length === 0 ? (
+                        <div className="col-span-2 text-center py-4 text-white/50">
+                          <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-xs">No owners available</p>
+                        </div>
+                      ) : (
+                        owners.map((owner) => {
+                          const isSelected = selectedPlayer.owner?.id === owner.id;
+                          const isUpdating = updatingOwner === owner.id;
+                          
+                          return (
+                            <button
+                              key={owner.id}
+                              onClick={() => handleOwnerSelect(owner.id)}
+                              disabled={isUpdating || isSelected}
+                              className={`
+                                relative bg-white rounded-lg p-2 shadow-md 
+                                transition-all duration-300 transform active:scale-95
+                                ${isSelected 
+                                  ? 'ring-2 ring-[#E6B31E] bg-gradient-to-br from-[#E6B31E]/10 to-[#E6B31E]/5' 
+                                  : ''
+                                }
+                                ${isUpdating ? 'opacity-50' : ''}
+                              `}
+                            >
+                              {isUpdating && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-lg z-10">
+                                  <Loader className="w-4 h-4 animate-spin text-[#041955]" />
+                                </div>
+                              )}
+                              
+                              {isSelected && (
+                                <div className="absolute top-1 right-1 bg-[#E6B31E] text-[#041955] rounded-full p-1 shadow-lg z-10">
+                                  <UserCheck className="w-3 h-3" />
+                                </div>
+                              )}
+                              
+                              <div className="flex flex-col items-center space-y-1">
+                                {owner.imageUrl ? (
+                                  <img
+                                    src={owner.imageUrl}
+                                    alt={owner.name}
+                                    className={`w-10 h-10 rounded-full object-cover border-2 ${
+                                      isSelected ? 'border-[#E6B31E] border-2' : 'border-gray-300'
+                                    }`}
+                                  />
+                                ) : (
+                                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-[#041955] to-[#062972] flex items-center justify-center border-2 ${
+                                    isSelected ? 'border-[#E6B31E] border-2' : 'border-gray-300'
+                                  }`}>
+                                    <Users className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                
+                                <div className="text-center w-full">
+                                  <h4 className="font-bold text-[#041955] text-xs truncate">
+                                    {owner.name}
+                                  </h4>
+                                  {owner.teamName && (
+                                    <p className="text-[10px] text-gray-600 truncate">
+                                      {owner.teamName}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-              {/* Main Layout: Owners on sides, Player in center */}
-              <div className="flex items-center justify-center h-full gap-6 px-4">
-                {/* Left Side Owners */}
-                <div className="flex-1 max-w-[300px] h-full flex flex-col justify-center">
-                  {(() => {
-                    const midPoint = Math.ceil(owners.length / 2);
-                    const leftOwners = owners.slice(0, midPoint);
-                    
-                    return (
-                      <div className="space-y-4 pr-2">
-                        {loadingOwners ? (
-                          <div className="flex justify-center items-center py-8">
-                            <Loader className="w-8 h-8 animate-spin text-white" />
-                          </div>
-                        ) : leftOwners.length === 0 ? (
-                          <div className="text-center py-8 text-white/50">
-                            <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          </div>
-                        ) : (
-                          leftOwners.map((owner) => {
+                {/* Left Side Owners - Hidden on mobile, shown on desktop */}
+                <div className="hidden md:flex flex-1 max-w-[250px] lg:max-w-[300px] h-full flex-col justify-center">
+                  <div className="space-y-4 pr-2">
+                    {loadingOwners ? (
+                      <div className="flex justify-center items-center py-8">
+                        <Loader className="w-8 h-8 animate-spin text-white" />
+                      </div>
+                    ) : ownerSlices.left.length === 0 ? (
+                      <div className="text-center py-8 text-white/50">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      </div>
+                    ) : (
+                      ownerSlices.left.map((owner) => {
                             const isSelected = selectedPlayer.owner?.id === owner.id;
                             const isUpdating = updatingOwner === owner.id;
                             
@@ -842,17 +1021,36 @@ export default function PlayersPage() {
                             );
                           })
                         )}
-                      </div>
-                    );
-                  })()}
+                  </div>
                 </div>
 
                 {/* Center: Player Details */}
-                <div className="flex-shrink-0 w-full max-w-4xl">
-                  <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-10 max-h-[90vh] overflow-y-auto">
+                <div className="flex-shrink-0 w-full max-w-4xl order-2 md:order-none relative">
+                  {/* Navigation Arrows - Positioned relative to center section */}
+                  {selectedPlayerIndex !== null && selectedPlayerIndex > 0 && (
+                    <button
+                      onClick={handlePreviousPlayer}
+                      className="absolute left-1 md:-left-12 lg:-left-16 top-1/2 -translate-y-1/2 z-30 bg-white/95 backdrop-blur-sm rounded-full p-2 md:p-3 shadow-xl hover:bg-white transition-all hover:scale-110 active:scale-95"
+                      aria-label="Previous Player"
+                    >
+                      <ChevronLeft className="w-5 h-5 md:w-6 md:h-6 text-[#041955]" />
+                    </button>
+                  )}
+
+                  {selectedPlayerIndex !== null && selectedPlayerIndex < allPlayers.length - 1 && (
+                    <button
+                      onClick={handleNextPlayer}
+                      className="absolute right-1 md:-right-12 lg:-right-16 top-1/2 -translate-y-1/2 z-30 bg-white/95 backdrop-blur-sm rounded-full p-2 md:p-3 shadow-xl hover:bg-white transition-all hover:scale-110 active:scale-95"
+                      aria-label="Next Player"
+                    >
+                      <ChevronRight className="w-5 h-5 md:w-6 md:h-6 text-[#041955]" />
+                    </button>
+                  )}
+
+                  <div className="bg-white rounded-2xl shadow-2xl p-4 md:p-6 lg:p-10 max-h-[85vh] md:max-h-[90vh] overflow-y-auto">
                     {/* Header with Index */}
-                    <div className="text-center mb-8 animate-fade-in">
-                      <div className="inline-block bg-gradient-to-r from-[#E6B31E] to-[#d4a017] text-[#041955] font-bold text-xl md:text-2xl px-6 py-3 rounded-full mb-4 shadow-lg transform hover:scale-105 transition-transform animate-pulse-slow">
+                    <div className="text-center mb-4 md:mb-8 animate-fade-in">
+                      <div className="inline-block bg-gradient-to-r from-[#E6B31E] to-[#d4a017] text-[#041955] font-bold text-base sm:text-lg md:text-xl lg:text-2xl px-4 py-2 md:px-6 md:py-3 rounded-full mb-3 md:mb-4 shadow-lg transform hover:scale-105 transition-transform animate-pulse-slow">
                         #{selectedPlayerIndex !== null ? selectedPlayerIndex + 1 : ''} of {totalCount}
                       </div>
                       {/* Status Badges */}
@@ -872,14 +1070,14 @@ export default function PlayersPage() {
                       </div>
                       
                       {/* Bid Amount Counter - Small Tile */}
-                      <div className="mt-6 flex justify-center">
-                        <div className="bg-gradient-to-br from-[#E6B31E] to-[#d4a017] rounded-xl px-6 py-4 shadow-lg transform hover:scale-105 transition-transform">
+                      <div className="mt-4 md:mt-6 flex justify-center">
+                        <div className="bg-gradient-to-br from-[#E6B31E] to-[#d4a017] rounded-xl px-4 py-3 md:px-6 md:py-4 shadow-lg transform hover:scale-105 transition-transform">
                           <div className="text-center">
-                            <p className="text-xs text-[#041955] font-semibold mb-1">Bid Amount</p>
-                            <p className="text-2xl md:text-3xl font-bold text-[#041955]">
+                            <p className="text-[10px] sm:text-xs text-[#041955] font-semibold mb-1">Bid Amount</p>
+                            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-[#041955]">
                               ₹{bidAmount.toLocaleString('en-IN')}
                             </p>
-                            <div className="flex items-center justify-center gap-2 mt-2 text-xs text-[#041955]/70">
+                            <div className="flex items-center justify-center gap-1 md:gap-2 mt-1 md:mt-2 text-[10px] sm:text-xs text-[#041955]/70">
                               <span>↑ +₹500</span>
                               <span>•</span>
                               <span>↓ -₹500</span>
@@ -900,24 +1098,25 @@ export default function PlayersPage() {
                       <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8 relative z-10">
                         <div className="relative group">
                           <div className="absolute inset-0 bg-[#E6B31E] rounded-full blur-2xl opacity-50 animate-pulse"></div>
-                          <LazyImage
+                          <img
                             src={selectedPlayer.images.profileImage}
                             alt={`${selectedPlayer.firstName} ${selectedPlayer.lastName}`}
-                            className="w-40 h-40 md:w-56 md:h-56 rounded-full border-4 border-[#E6B31E] object-cover shadow-2xl transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 relative z-10"
+                            className="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 rounded-full border-4 border-[#E6B31E] object-cover shadow-2xl transform transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 relative z-10"
+                            loading="eager"
                           />
                         </div>
                         <div className="flex-1 text-center md:text-left animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 transform transition-all duration-300 hover:scale-105">
+                          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-3 md:mb-4 transform transition-all duration-300 hover:scale-105">
                             {selectedPlayer.firstName} {selectedPlayer.lastName}
                           </h2>
-                          <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-lg">
-                            <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
-                              <Phone className="w-5 h-5" />
-                              <span>{selectedPlayer.mobileNumber}</span>
+                          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-4 text-sm md:text-lg">
+                            <div className="flex items-center space-x-2 bg-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-lg backdrop-blur-sm">
+                              <Phone className="w-4 h-4 md:w-5 md:h-5" />
+                              <span className="text-xs md:text-base">{selectedPlayer.mobileNumber}</span>
                             </div>
-                            <div className="flex items-center space-x-2 bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
-                              <Shirt className="w-5 h-5" />
-                              <span>#{selectedPlayer.tshirtNumber}</span>
+                            <div className="flex items-center space-x-2 bg-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-lg backdrop-blur-sm">
+                              <Shirt className="w-4 h-4 md:w-5 md:h-5" />
+                              <span className="text-xs md:text-base">#{selectedPlayer.tshirtNumber}</span>
                             </div>
                           </div>
                         </div>
@@ -1077,7 +1276,7 @@ export default function PlayersPage() {
                             handleCloseModal();
                             navigate(`/details?mobile=${selectedPlayer.mobileNumber}`);
                           }}
-                          className="w-full bg-gradient-to-r from-[#041955] to-[#062972] text-white px-8 py-4 rounded-xl font-bold text-lg hover:from-[#062972] hover:to-[#041955] transition-all duration-300 transform hover:scale-105 shadow-lg"
+                          className="w-full bg-gradient-to-r from-[#041955] to-[#062972] text-white px-4 py-3 md:px-8 md:py-4 rounded-xl font-bold text-sm md:text-lg hover:from-[#062972] hover:to-[#041955] transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg touch-manipulation"
                         >
                           View Full Details
                         </button>
@@ -1086,24 +1285,19 @@ export default function PlayersPage() {
                   </div>
                 </div>
 
-                {/* Right Side Owners */}
-                <div className="flex-1 max-w-[300px] h-full flex flex-col justify-center">
-                  {(() => {
-                    const midPoint = Math.ceil(owners.length / 2);
-                    const rightOwners = owners.slice(midPoint);
-                    
-                    return (
-                      <div className="space-y-4 pl-2">
-                        {loadingOwners ? (
-                          <div className="flex justify-center items-center py-8">
-                            <Loader className="w-8 h-8 animate-spin text-white" />
-                          </div>
-                        ) : rightOwners.length === 0 ? (
-                          <div className="text-center py-8 text-white/50">
-                            <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          </div>
-                        ) : (
-                          rightOwners.map((owner) => {
+                {/* Right Side Owners - Hidden on mobile, shown on desktop */}
+                <div className="hidden md:flex flex-1 max-w-[250px] lg:max-w-[300px] h-full flex-col justify-center">
+                  <div className="space-y-4 pl-2">
+                    {loadingOwners ? (
+                      <div className="flex justify-center items-center py-8">
+                        <Loader className="w-8 h-8 animate-spin text-white" />
+                      </div>
+                    ) : ownerSlices.right.length === 0 ? (
+                      <div className="text-center py-8 text-white/50">
+                        <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      </div>
+                    ) : (
+                      ownerSlices.right.map((owner) => {
                             const isSelected = selectedPlayer.owner?.id === owner.id;
                             const isUpdating = updatingOwner === owner.id;
                             
@@ -1172,9 +1366,7 @@ export default function PlayersPage() {
                             );
                           })
                         )}
-                      </div>
-                    );
-                  })()}
+                  </div>
                 </div>
               </div>
             </div>
