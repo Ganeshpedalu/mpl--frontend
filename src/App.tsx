@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Loader } from 'lucide-react';
 import { FrontendDetailsProvider } from './context/FrontendDetailsContext';
+import { OwnersProvider } from './context/OwnersContext';
 
 // Lazy load pages for better performance
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -10,6 +11,8 @@ const SearchPage = lazy(() => import('./pages/SearchPage'));
 const DetailsPage = lazy(() => import('./pages/DetailsPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const OwnersPage = lazy(() => import('./pages/OwnersPage'));
+const PlayersPage = lazy(() => import('./pages/PlayersPage'));
+const OwnerRegistrationPage = lazy(() => import('./pages/OwnerRegistrationPage'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -24,18 +27,22 @@ const LoadingFallback = () => (
 function App() {
   return (
     <FrontendDetailsProvider>
-      <div className="min-h-screen">
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/register" element={<RegistrationPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/details" element={<DetailsPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/owners" element={<OwnersPage />} />
-          </Routes>
-        </Suspense>
-      </div>
+      <OwnersProvider>
+        <div className="min-h-screen">
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/register" element={<RegistrationPage />} />
+              <Route path="/search" element={<SearchPage />} />
+              <Route path="/details" element={<DetailsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/owners" element={<OwnersPage />} />
+              <Route path="/players" element={<PlayersPage />} />
+              <Route path="/owner/register" element={<OwnerRegistrationPage />} />
+            </Routes>
+          </Suspense>
+        </div>
+      </OwnersProvider>
     </FrontendDetailsProvider>
   );
 }

@@ -1,6 +1,7 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
-import { Loader, Users, Mail, Phone, Trophy } from 'lucide-react';
+import { Suspense, lazy, useState, useEffect, useCallback } from 'react';
+import { Loader, Users, Mail, Phone, Trophy, AlertCircle } from 'lucide-react';
 import { useFrontendDetails } from '../context/FrontendDetailsContext';
+import { getApiUrl, getApiUrlWithParams } from '../config/apiConfig';
 
 const Header = lazy(() => import('../components/Header'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -14,35 +15,119 @@ const LoadingFallback = () => (
   </div>
 );
 
-const buildMediaSource = (value?: string | null): string | undefined => {
-  if (!value) {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
+interface OwnerData {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  imageUrl: string;
+  bio: string;
+  teamName: string;
+  season: string;
+  createdAt: string;
+  updatedAt?: string;
+}
 
-  if (/^(data:|https?:|blob:)/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  return `data:image/jpeg;base64,${trimmed}`;
-};
+interface OwnersApiResponse {
+  success: boolean;
+  data: OwnerData[];
+  count: number;
+  message?: string;
+}
 
 export default function OwnersPage() {
   const { details } = useFrontendDetails();
-  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const [owners, setOwners] = useState<OwnerData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  
   const tournamentName = details?.dashboard?.tournamentName ?? 'MPL';
   const seasonLabel = details?.dashboard?.season ?? 'Season 2';
 
-  const owners = useMemo(() => {
-    return details?.owners?.filter(owner => owner.season === seasonLabel) || [];
-  }, [details?.owners, seasonLabel]);
+  const fetchOwners = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const handleImageError = (index: number) => {
-    setImageErrors((prev) => new Set(prev).add(index));
+      // Fetch owners with optional season filter
+      const url = seasonLabel 
+        ? getApiUrlWithParams('owners', { season: seasonLabel })
+        : getApiUrl('owners');
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        let errorMsg = 'Failed to fetch owners';
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.message || errorData.error || errorMsg;
+        } catch (parseError) {
+          errorMsg = response.statusText || errorMsg;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const result: OwnersApiResponse = await response.json();
+
+      if (result.success && result.data) {
+        setOwners(result.data);
+      } else {
+        throw new Error(result.message || 'Failed to fetch owners');
+      }
+    } catch (err) {
+      console.error('Error fetching owners:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Network error. Please check your connection and try again.';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [seasonLabel]);
+
+  useEffect(() => {
+    fetchOwners();
+  }, [fetchOwners]);
+
+  const handleImageError = (ownerId: string) => {
+    setImageErrors((prev) => new Set(prev).add(ownerId));
   };
+
+  if (loading) {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <Header />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <Loader className="w-12 h-12 animate-spin text-[#041955] mx-auto mb-4" />
+            <p className="text-lg text-gray-600">Loading owners...</p>
+          </div>
+        </div>
+        <Footer />
+      </Suspense>
+    );
+  }
+
+  if (error) {
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <Header />
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-[#041955] mb-2">Error</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={fetchOwners}
+              className="bg-[#041955] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#062972] transition-all"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+        <Footer />
+      </Suspense>
+    );
+  }
 
   return (
     <Suspense fallback={<LoadingFallback />}>
@@ -69,25 +154,27 @@ export default function OwnersPage() {
           {/* Owners Grid */}
           {owners.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {owners.map((owner, index) => {
-                const ownerImage = buildMediaSource(owner.base64ImageUrl);
-                const hasImageError = imageErrors.has(index);
+              {owners.map((owner) => {
+                const hasImageError = imageErrors.has(owner.id);
 
                 return (
                   <div
-                    key={index}
+                    key={owner.id}
                     className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
                   >
                     {/* Owner Image */}
-                    <div className="relative h-64 bg-gradient-to-br from-[#041955] to-[#062972] flex items-center justify-center">
-                      {ownerImage && !hasImageError ? (
+                    <div className="relative h-64 bg-gradient-to-br from-[#041955] to-[#062972] flex items-center justify-center overflow-hidden">
+                      {owner.imageUrl && !hasImageError ? (
                         <img
-                          src={ownerImage}
+                          src={owner.imageUrl}
                           alt={owner.name}
                           className="w-full h-full object-cover"
-                          onError={() => handleImageError(index)}
+                          onError={() => handleImageError(owner.id)}
+                          loading="lazy"
                         />
-                      ) : null }
+                      ) : (
+                        <Users className="w-24 h-24 text-white/30" />
+                      )}
                     </div>
 
                     {/* Owner Details */}

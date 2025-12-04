@@ -38,6 +38,15 @@ const buildMediaSource = (value?: string | null, mediaKind: 'image' | 'video' = 
   return `${prefix}${trimmed}`;
 };
 
+const buildS3HighlightUrl = (type?: string): string | undefined => {
+  if (!type || !type.trim()) {
+    return undefined;
+  }
+  // Construct S3 URL: https://ganesh-mpl.s3.eu-north-1.amazonaws.com/highlights/{type}.jpeg
+  const cleanType = type.trim().toLowerCase().replace(/\s+/g, '-');
+  return `https://ganesh-mpl.s3.eu-north-1.amazonaws.com/highlights/${cleanType}.jpeg`;
+};
+
 export default function Gallery() {
   const { details } = useFrontendDetails();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -92,7 +101,13 @@ export default function Gallery() {
           item.type && !['video', 'image'].includes(item.type.toLowerCase()) ? item.type : item.label?.trim();
 
         const baseColor = item.color ?? highlightColors[itemIndex % highlightColors.length];
-        const imageSource = buildMediaSource(item.base64ImageUrl ?? item.imageUrl ?? item.thumbnailBase64, 'image');
+        
+        // For highlights, base64ImageUrl now contains S3 URLs directly from the API
+        // Priority: base64ImageUrl (S3 URL) > imageUrl > S3 URL constructed from type (fallback) > thumbnailBase64
+        const imageSource = buildMediaSource(
+          item.base64ImageUrl ?? item.imageUrl ?? buildS3HighlightUrl(item.type) ?? item.thumbnailBase64, 
+          'image'
+        );
         const videoSource = buildMediaSource(item.base64VideoUrl ?? item.videoUrl, 'video');
 
         const galleryItem: GalleryItem = {

@@ -8,6 +8,9 @@ export interface ApiConfig {
     details: string;
     frontendDetails: string;
     checkMobile: string;
+    players: string;
+    owner: string;
+    owners: string;
   };
 }
 
@@ -19,6 +22,9 @@ const developmentConfig: ApiConfig = {
     details: '/api/details',
     frontendDetails: '/api/frontend-details',
     checkMobile: '/api/check-mobile',
+    players: '/api/players',
+    owner: '/api/owner',
+    owners: '/api/owners',
   },
 };
 
@@ -30,6 +36,9 @@ const productionConfig: ApiConfig = {
     details: '/api/details',
     frontendDetails: '/api/frontend-details',
     checkMobile: '/api/check-mobile',
+    players: '/api/players',
+    owner: '/api/owner',
+    owners: '/api/owners',
   },
 };
 
@@ -52,6 +61,9 @@ export const apiConfig: ApiConfig = envApiUrl
         details: '/api/details',
         frontendDetails: '/api/frontend-details',
         checkMobile: '/api/check-mobile',
+        players: '/api/players',
+        owner: '/api/owner',
+        owners: '/api/owners',
       },
     }
   : useLocalhost
