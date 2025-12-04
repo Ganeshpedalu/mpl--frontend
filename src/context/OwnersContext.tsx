@@ -11,7 +11,7 @@ export interface OwnerData {
   season?: string;
   imageUrl?: string;
   purseValue?: number;
-}
+} 
  
 interface OwnersApiResponse {
   success: boolean;
