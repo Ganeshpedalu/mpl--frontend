@@ -51,17 +51,14 @@ interface PlayersApiResponse {
 export default function PlayersPage() {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<PlayerData[]>([]);
-  const [allPlayers, setAllPlayers] = useState<PlayerData[]>([]); // For modal navigation
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
   const [selectedPlayerIndex, setSelectedPlayerIndex] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalDirection, setModalDirection] = useState<'left' | 'right' | 'none'>('none');
-  const [cardAnimations, setCardAnimations] = useState<boolean[]>([]);
   
-  // Ref to track latest allPlayers for closures
-  const allPlayersRef = useRef<PlayerData[]>([]);
+  // Ref to track latest players for closures (reuse players state to reduce memory)
+  const playersRef = useRef<PlayerData[]>([]);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -134,20 +131,9 @@ export default function PlayersPage() {
       const result: PlayersApiResponse = await response.json();
 
       if (result.success && result.data) {
-        setTotalCount(result.count);
-        setAllPlayers(result.data);
-        allPlayersRef.current = result.data; // Update ref for closures
+        // Use single players state to reduce memory (removed duplicate allPlayers and cardAnimations)
         setPlayers(result.data);
-        // Initialize card animations only on first load or non-silent updates
-        if (!silent) {
-          setCardAnimations(new Array(result.data.length).fill(false));
-          // Trigger staggered animations using requestAnimationFrame for better performance
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              setCardAnimations(new Array(result.data.length).fill(true));
-            }, 100);
-          });
-        }
+        playersRef.current = result.data; // Update ref for closures
       } else {
         throw new Error(result.message || 'Failed to fetch players');
       }
@@ -216,7 +202,8 @@ export default function PlayersPage() {
   }, []);
 
   const handlePlayerClick = (playerIndex: number) => {
-    const player = allPlayers[playerIndex];
+    const player = players[playerIndex];
+    if (!player) return;
     const basePrice = getBasePrice(player);
     setBidAmount(basePrice); // Set counter to base price when opening a player modal
     setSelectedPlayerIndex(playerIndex);
@@ -301,10 +288,10 @@ export default function PlayersPage() {
     });
   }, [players, getPlayerCategoryId, getPlayerCategoryData]);
 
-  // Map of category ID to players list for allPlayers (for O(1) lookups)
-  const allPlayersByCategoryMap = useMemo(() => {
+  // Map of category ID to players list (for O(1) lookups) - using players instead of allPlayers
+  const playersByCategoryMap = useMemo(() => {
     const map = new Map<string, PlayerData[]>();
-    allPlayers.forEach(player => {
+    players.forEach(player => {
       const categoryId = getPlayerCategoryId(player);
       if (!map.has(categoryId)) {
         map.set(categoryId, []);
@@ -312,32 +299,32 @@ export default function PlayersPage() {
       map.get(categoryId)!.push(player);
     });
     return map;
-  }, [allPlayers, getPlayerCategoryId]);
+  }, [players, getPlayerCategoryId]);
 
-  // Map of mobile number to index in allPlayers (for O(1) lookups)
+  // Map of mobile number to index (for O(1) lookups) - using players instead of allPlayers
   const playerIndexMap = useMemo(() => {
     const map = new Map<string, number>();
-    allPlayers.forEach((player, index) => {
+    players.forEach((player, index) => {
       map.set(player.mobileNumber, index);
     });
     return map;
-  }, [allPlayers]);
+  }, [players]);
 
   // Find next/previous player in SAME category only (not across categories) - OPTIMIZED
   const findNextPlayerInCategoryOrder = useCallback((currentIndex: number, direction: 'next' | 'prev'): number | null => {
-    if (allPlayers.length === 0 || currentIndex < 0 || currentIndex >= allPlayers.length) {
+    if (players.length === 0 || currentIndex < 0 || currentIndex >= players.length) {
       return null;
     }
     
     // Find current player
-    const currentPlayer = allPlayers[currentIndex];
+    const currentPlayer = players[currentIndex];
     if (!currentPlayer) return null;
     
     // Get current player's category ID using helper
     const currentCategoryId = getPlayerCategoryId(currentPlayer);
     
     // Get all players in the SAME category only using pre-computed map (O(1) lookup)
-    const playersInSameCategory = allPlayersByCategoryMap.get(currentCategoryId);
+    const playersInSameCategory = playersByCategoryMap.get(currentCategoryId);
     if (!playersInSameCategory || playersInSameCategory.length === 0) {
       return null;
     }
@@ -363,13 +350,14 @@ export default function PlayersPage() {
       }
       return null; // No previous player in this category
     }
-  }, [allPlayers, allPlayersByCategoryMap, playerIndexMap, getPlayerCategoryId]);
+  }, [players, playersByCategoryMap, playerIndexMap, getPlayerCategoryId]);
 
   const handlePreviousPlayer = useCallback(() => {
     if (selectedPlayerIndex !== null) {
       const prevIndex = findNextPlayerInCategoryOrder(selectedPlayerIndex, 'prev');
       if (prevIndex !== null && prevIndex >= 0) {
-        const prevPlayer = allPlayers[prevIndex];
+        const prevPlayer = players[prevIndex];
+        if (!prevPlayer) return;
         const basePrice = getBasePrice(prevPlayer);
         setBidAmount(basePrice);
         // Update index immediately, then set direction for animation
@@ -381,13 +369,14 @@ export default function PlayersPage() {
         }, 300);
       }
     }
-  }, [selectedPlayerIndex, allPlayers, getBasePrice, findNextPlayerInCategoryOrder, allPlayersByCategoryMap, getPlayerCategoryId]);
+  }, [selectedPlayerIndex, players, getBasePrice, findNextPlayerInCategoryOrder]);
 
   const handleNextPlayer = useCallback(() => {
     if (selectedPlayerIndex !== null) {
       const nextIndex = findNextPlayerInCategoryOrder(selectedPlayerIndex, 'next');
-      if (nextIndex !== null && nextIndex < allPlayers.length) {
-        const nextPlayer = allPlayers[nextIndex];
+      if (nextIndex !== null && nextIndex < players.length) {
+        const nextPlayer = players[nextIndex];
+        if (!nextPlayer) return;
         const basePrice = getBasePrice(nextPlayer);
         setBidAmount(basePrice);
         // Update index immediately, then set direction for animation
@@ -399,7 +388,7 @@ export default function PlayersPage() {
         }, 300);
       }
     }
-  }, [selectedPlayerIndex, allPlayers, getBasePrice, findNextPlayerInCategoryOrder, allPlayersByCategoryMap, getPlayerCategoryId]);
+  }, [selectedPlayerIndex, players, getBasePrice, findNextPlayerInCategoryOrder]);
 
   const handleFilterChange = (key: keyof typeof filters, value: string | 'true' | 'false' | 'all' | boolean) => {
     setFilters(prev => ({
@@ -484,7 +473,7 @@ export default function PlayersPage() {
         const currentCategoryId = getPlayerCategoryId(selectedPlayer);
         
         // Get all players in the same category BEFORE refetch using pre-computed map
-        const playersInSameCategoryBefore = allPlayersByCategoryMap.get(currentCategoryId) || [];
+        const playersInSameCategoryBefore = playersByCategoryMap.get(currentCategoryId) || [];
         
         // Find current player's index in category BEFORE refetch
         const currentIndexInCategory = playersInSameCategoryBefore.findIndex(p => p.mobileNumber === currentPlayerMobile);
@@ -520,7 +509,7 @@ export default function PlayersPage() {
             setSuccessMessage(null);
             
             // Get the latest players list from ref (always up-to-date)
-            const latestPlayers = allPlayersRef.current;
+            const latestPlayers = playersRef.current;
             
             // Find the remembered next player in the updated list using Map for O(1) lookup
             if (nextPlayerMobile) {
@@ -562,10 +551,10 @@ export default function PlayersPage() {
 
   // Memoize selected player to avoid unnecessary recalculations
   const selectedPlayer = useMemo(() => {
-    return selectedPlayerIndex !== null && allPlayers.length > 0 && selectedPlayerIndex < allPlayers.length
-      ? allPlayers[selectedPlayerIndex] 
+    return selectedPlayerIndex !== null && players.length > 0 && selectedPlayerIndex < players.length
+      ? players[selectedPlayerIndex] 
       : null;
-  }, [selectedPlayerIndex, allPlayers]);
+  }, [selectedPlayerIndex, players]);
 
   // Get current player's base price
   const currentBasePrice = useMemo(() => {
@@ -620,7 +609,7 @@ export default function PlayersPage() {
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, selectedPlayerIndex, allPlayers.length, currentBasePrice, handleCloseModal, handlePreviousPlayer, handleNextPlayer]);
+  }, [isModalOpen, selectedPlayerIndex, players.length, currentBasePrice, handleCloseModal, handlePreviousPlayer, handleNextPlayer]);
 
   // Initialize bid amount to base price when selected player changes (optimized)
   useEffect(() => {
@@ -697,7 +686,7 @@ export default function PlayersPage() {
                 All Players
               </h1>
               <p className="text-lg text-gray-600">
-                {totalCount > 0 && `${totalCount} player${totalCount !== 1 ? 's' : ''} found`}
+                {players.length > 0 && `${players.length} player${players.length !== 1 ? 's' : ''} found`}
               </p>
             </div>
             <button
@@ -861,25 +850,14 @@ export default function PlayersPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                     {group.players.map((player, cardIndex) => {
-                    const arrayIndex = allPlayers.findIndex(p => p.mobileNumber === player.mobileNumber);
-                    const isAnimated = cardAnimations[cardIndex] || false;
+                    const arrayIndex = players.findIndex(p => p.mobileNumber === player.mobileNumber);
                     return (
                       <div
                         key={player.mobileNumber}
                         onClick={() => arrayIndex >= 0 && handlePlayerClick(arrayIndex)}
-                        className={`
-                          bg-white rounded-xl shadow-lg overflow-hidden 
-                          transition-all duration-500 cursor-pointer 
-                          transform relative
-                          ${isAnimated 
-                            ? 'opacity-100 translate-y-0 scale-100' 
-                            : 'opacity-0 translate-y-10 scale-95'
-                          }
-                          hover:shadow-2xl hover:-translate-y-2 hover:scale-105
-                        `}
+                        className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 cursor-pointer transform relative opacity-100 hover:shadow-2xl hover:-translate-y-2 hover:scale-105 animate-fadeIn"
                         style={{
-                          animationDelay: `${cardIndex * 50}ms`,
-                          transitionDelay: `${cardIndex * 30}ms`
+                          animationDelay: `${cardIndex * 30}ms`
                         }}
                       >
 
@@ -1009,25 +987,14 @@ export default function PlayersPage() {
         {false && players.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {players.map((player, cardIndex) => {
-            const arrayIndex = allPlayers.findIndex(p => p.mobileNumber === player.mobileNumber);
-            const isAnimated = cardAnimations[cardIndex] || false;
+            const arrayIndex = players.findIndex(p => p.mobileNumber === player.mobileNumber);
             return (
               <div
                 key={player.mobileNumber}
                 onClick={() => arrayIndex >= 0 && handlePlayerClick(arrayIndex)}
-                className={`
-                  bg-white rounded-xl shadow-lg overflow-hidden 
-                  transition-all duration-500 cursor-pointer 
-                  transform relative
-                  ${isAnimated 
-                    ? 'opacity-100 translate-y-0 scale-100' 
-                    : 'opacity-0 translate-y-10 scale-95'
-                  }
-                  hover:shadow-2xl hover:-translate-y-2 hover:scale-105
-                `}
+                className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 cursor-pointer transform relative opacity-100 hover:shadow-2xl hover:-translate-y-2 hover:scale-105 animate-fadeIn"
                 style={{
-                  animationDelay: `${cardIndex * 50}ms`,
-                  transitionDelay: `${cardIndex * 30}ms`
+                  animationDelay: `${cardIndex * 30}ms`
                 }}
               >
 
@@ -1413,7 +1380,7 @@ export default function PlayersPage() {
                     {/* Header with Index */}
                     <div className="text-center mb-4 md:mb-8 animate-fade-in">
                       <div className="inline-block bg-gradient-to-r from-[#E6B31E] to-[#d4a017] text-[#041955] font-bold text-base sm:text-lg md:text-xl lg:text-2xl px-4 py-2 md:px-6 md:py-3 rounded-full mb-3 md:mb-4 shadow-lg transform hover:scale-105 transition-transform animate-pulse-slow">
-                        #{selectedPlayerIndex !== null ? selectedPlayerIndex + 1 : ''} of {totalCount}
+                        #{selectedPlayerIndex !== null ? selectedPlayerIndex + 1 : ''} of {players.length}
                       </div>
                       {/* Status Badges */}
                       <div className="flex items-center justify-center gap-3 mt-4">
