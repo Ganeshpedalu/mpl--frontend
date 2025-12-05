@@ -99,8 +99,6 @@ export default function PlayersPage() {
     return body;
   }, [filters.isSold, filters.isIconPlayer, filters.ownerId, filters.search, filters.maxBidAmount]);
 
-  // Polling ref for real-time updates
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const requestBodyRef = useRef(requestBody);
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   requestBodyRef.current = requestBody; // Keep ref updated
@@ -150,31 +148,11 @@ export default function PlayersPage() {
 
   // Note: Categories are fetched from the players API response, no separate fetch needed
 
-  // Fetch players when filters change
+  // Fetch players when filters change (no continuous polling)
   useEffect(() => {
-    // Clear any existing polling interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    // Initial fetch with current requestBody
+    // Fetch with current requestBody
     fetchPlayers(false, requestBody);
-    
-    // Set up polling for real-time updates (every 3 seconds)
-    pollingIntervalRef.current = setInterval(() => {
-      // Only poll if page is visible and modal is not open
-      if (!document.hidden && !isModalOpen) {
-        fetchPlayers(true); // Silent update (uses current requestBody from ref)
-      }
-    }, 3000);
-
-    // Cleanup polling on unmount or when filters change
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [requestBody, isModalOpen, fetchPlayers]); // Now fetchPlayers is stable, so this is safe
+  }, [requestBody, fetchPlayers]); // Now fetchPlayers is stable, so this is safe
 
   // Note: Infinite scroll removed - all filtered results are fetched at once
 
@@ -869,7 +847,13 @@ export default function PlayersPage() {
                               Icon
                             </div>
                           )}
-                          {player.isSold && (
+                          {player.isOwner && (
+                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                              <User className="w-3 h-3" />
+                              Owner
+                            </div>
+                          )}
+                          {player.isSold && !player.isOwner && !player.isIconPlayer && (
                             <div className="bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
                               <ShoppingCart className="w-3 h-3" />
                               Sold
@@ -1006,7 +990,13 @@ export default function PlayersPage() {
                       Icon
                     </div>
                   )}
-                  {player.isSold && (
+                  {player.isOwner && (
+                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      Owner
+                    </div>
+                  )}
+                  {player.isSold && !player.isOwner && !player.isIconPlayer && (
                     <div className="bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
                       <ShoppingCart className="w-3 h-3" />
                       Sold
@@ -1187,7 +1177,8 @@ export default function PlayersPage() {
 
               {/* Main Layout: Owners on sides (desktop), stacked (mobile), Player in center */}
               <div className="flex flex-col md:flex-row items-center justify-center h-full gap-2 md:gap-6 px-2 md:px-4 overflow-y-auto">
-                {/* Mobile: Owners Section Above Player (Scrollable) */}
+                {/* Mobile: Owners Section Above Player (Scrollable) - Only show for unsold players */}
+                {!selectedPlayer.isSold && (
                 <div className="md:hidden w-full order-1 mb-4">
                   <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 max-h-[200px] overflow-y-auto">
                     <h3 className="text-white font-bold text-sm mb-3 text-center">Select Owner</h3>
@@ -1268,8 +1259,10 @@ export default function PlayersPage() {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Left Side Owners - Hidden on mobile, shown on desktop */}
+                {/* Left Side Owners - Hidden on mobile, shown on desktop - Only show for unsold players */}
+                {!selectedPlayer.isSold && (
                 <div className="hidden md:flex flex-1 max-w-[250px] lg:max-w-[300px] h-full flex-col justify-center">
                   <div className="space-y-4 pr-2">
                     {loadingOwners ? (
@@ -1352,6 +1345,7 @@ export default function PlayersPage() {
                         )}
                   </div>
                 </div>
+                )}
 
                 {/* Center: Player Details */}
                 <div className="flex-shrink-0 w-full max-w-4xl order-2 md:order-none relative">
@@ -1383,14 +1377,20 @@ export default function PlayersPage() {
                         #{selectedPlayerIndex !== null ? selectedPlayerIndex + 1 : ''} of {players.length}
                       </div>
                       {/* Status Badges */}
-                      <div className="flex items-center justify-center gap-3 mt-4">
+                      <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
                         {selectedPlayer.isIconPlayer && (
                           <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white font-bold text-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
                             <Crown className="w-4 h-4" />
                             Icon Player
                           </div>
                         )}
-                        {selectedPlayer.isSold && (
+                        {selectedPlayer.isOwner && (
+                          <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold text-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+                            <User className="w-4 h-4" />
+                            Owner
+                          </div>
+                        )}
+                        {selectedPlayer.isSold && !selectedPlayer.isOwner && !selectedPlayer.isIconPlayer && (
                           <div className="bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
                             <ShoppingCart className="w-4 h-4" />
                             Sold
@@ -1398,7 +1398,8 @@ export default function PlayersPage() {
                         )}
                       </div>
                       
-                      {/* Bid Amount Counter - Small Tile */}
+                      {/* Bid Amount Counter - Small Tile - Only show for unsold players */}
+                      {!selectedPlayer.isSold && (
                       <div className="mt-4 md:mt-6 flex justify-center">
                         <div className="bg-gradient-to-br from-[#E6B31E] to-[#d4a017] rounded-xl px-4 py-3 md:px-6 md:py-4 shadow-lg transform hover:scale-105 transition-transform">
                           <div className="text-center">
@@ -1414,6 +1415,25 @@ export default function PlayersPage() {
                           </div>
                         </div>
                       </div>
+                      )}
+                      
+                      {/* Sold Message - Show for sold players */}
+                      {selectedPlayer.isSold && (
+                      <div className="mt-4 md:mt-6 flex justify-center">
+                        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl px-6 py-4 md:px-8 md:py-5 shadow-lg">
+                          <div className="text-center text-white">
+                            <ShoppingCart className="w-8 h-8 md:w-10 md:h-10 mx-auto mb-2" />
+                            <p className="text-lg md:text-xl font-bold mb-1">Player Already Sold</p>
+                            <p className="text-sm md:text-base opacity-90">Bidding is not available for this player</p>
+                            {selectedPlayer.owner && typeof selectedPlayer.owner === 'object' && selectedPlayer.owner.name && (
+                              <p className="text-sm md:text-base mt-2 opacity-75">
+                                Owner: {selectedPlayer.owner.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      )}
                     </div>
 
                     {/* Profile Section */}
@@ -1620,7 +1640,8 @@ export default function PlayersPage() {
                   </div>
                 </div>
 
-                {/* Right Side Owners - Hidden on mobile, shown on desktop */}
+                {/* Right Side Owners - Hidden on mobile, shown on desktop - Only show for unsold players */}
+                {!selectedPlayer.isSold && (
                 <div className="hidden md:flex flex-1 max-w-[250px] lg:max-w-[300px] h-full flex-col justify-center">
                   <div className="space-y-4 pl-2">
                     {loadingOwners ? (
@@ -1703,6 +1724,7 @@ export default function PlayersPage() {
                         )}
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>
