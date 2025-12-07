@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Upload, CheckCircle, AlertCircle, Loader, Copy, Check } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, Loader, Copy, Check, X } from 'lucide-react';
 import { getApiUrl, getApiUrlWithParams } from '../config/apiConfig';
 import { getWhatsAppGroupLink } from '../config/socialConfig';
 import { useFrontendDetails } from '../context/FrontendDetailsContext';
@@ -40,6 +40,7 @@ export default function RegistrationForm() {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showSarcasmModal, setShowSarcasmModal] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [mobileNumberStatus, setMobileNumberStatus] = useState<'idle' | 'checking' | 'exists' | 'available'>('idle');
 
@@ -329,90 +330,10 @@ export default function RegistrationForm() {
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitStatus('idle');
-    setErrorMessage(null);
-
-    try {
-      const form = new FormData();
-      form.append('firstName', formData.firstName);
-      form.append('lastName', formData.lastName);
-      form.append('mobileNumber', formData.mobileNumber);
-      form.append('tshirtSize', formData.tshirtSize);
-      form.append('tshirtName', formData.tshirtName);
-      form.append('tshirtNumber', formData.tshirtNumber);
-      form.append('role', formData.role);
-
-      if (formData.profileFile) {
-        form.append('profileFile', formData.profileFile);
-      }
-      if (formData.aadhaarFile) {
-        form.append('aadhaarFile', formData.aadhaarFile);
-      }
-      if (formData.paymentFile) {
-        form.append('paymentFile', formData.paymentFile);
-      }
-
-      const response = await fetch(getApiUrl('register'), {
-        method: 'POST',
-        body: form,
-      });
-
-      if (!response.ok) {
-        // Try to parse the error response from the API
-        let errorMsg = 'Failed to submit registration';
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.message || errorData.error || errorMsg;
-        } catch (parseError) {
-          // If JSON parsing fails, use the status text or default message
-          errorMsg = response.statusText || errorMsg;
-        }
-        setErrorMessage(errorMsg);
-        setSubmitStatus('error');
-        setIsSubmitting(false);
-        return;
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-      setSubmitStatus('success');
-      setShowConfirmation(true);
-
-      setFormData({
-        firstName: '',
-        lastName: '',
-        mobileNumber: '',
-        tshirtSize: '',
-        tshirtName: '',
-        tshirtNumber: '',
-        role: '',
-        aadhaarFile: null,
-        profileFile: null,
-        paymentFile: null,
-      });
-      setAadhaarPreview(null);
-      setPaymentPreview(null);
-      setProfilePreview(null);
-      setErrors({});
-      } else {
-        setErrorMessage(result.message || 'Registration failed. Please try again.');
-        setSubmitStatus('error');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Network error. Please check your connection and try again.';
-      setErrorMessage(errorMsg);
-      setSubmitStatus('error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [formData]);
+    // Registration is closed - show sarcastic message in modal
+    setShowSarcasmModal(true);
+    setIsSubmitting(false);
+  }, []);
 
   // Confirmation Page Component
   if (showConfirmation) {
@@ -541,7 +462,39 @@ export default function RegistrationForm() {
   }
 
   return (
-    <section id="register" className="py-16 md:py-24 bg-gradient-to-br from-gray-50 to-gray-100">
+    <>
+      {/* Sarcasm Modal */}
+      {showSarcasmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 md:p-12 relative">
+            <button
+              onClick={() => setShowSarcasmModal(false)}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-600" />
+            </button>
+            <div className="text-center">
+              <div className="mb-6">
+                <AlertCircle className="w-20 h-20 text-red-600 mx-auto" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-red-600 mb-4">
+                Oh nice, you registered very early for MPL Season 3! 😏
+              </h2>
+              <p className="text-lg text-gray-700 mb-6">
+                Registration is currently closed. Please check back later for Season 3 registration.
+              </p>
+              <button
+                onClick={() => setShowSarcasmModal(false)}
+                className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold text-lg hover:bg-red-700 transition-all duration-300 transform hover:scale-105"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <section id="register" className="py-16 md:py-24 bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#041955] mb-4">
@@ -553,112 +506,63 @@ export default function RegistrationForm() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 md:p-10">
-          {submitStatus === 'error' && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
-              <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-semibold text-red-900">Registration Failed</p>
-                <p className="text-sm text-red-700">{errorMessage || 'Something went wrong. Please try again.'}</p>
-              </div>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  First Name <span className="text-red-500">*</span>
+                  First Name
                 </label>
                 <input
                   type="text"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.firstName ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                   placeholder="Enter first name"
                 />
-                {errors.firstName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.firstName}</p>
-                )}
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Last Name <span className="text-red-500">*</span>
+                  Last Name
                 </label>
                 <input
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                   placeholder="Enter last name"
                 />
-                {errors.lastName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.lastName}</p>
-                )}
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Mobile Number <span className="text-red-500">*</span>
+                Mobile Number
               </label>
-              <div className="relative">
               <input
                 type="tel"
                 value={formData.mobileNumber}
-                  onChange={(e) => {
-                    // Only allow digits and limit to exactly 10 digits
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                    setFormData({ ...formData, mobileNumber: value });
-                    // Validation will happen automatically in useEffect
-                  }}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData({ ...formData, mobileNumber: value });
+                }}
                 maxLength={10}
-                  pattern="[0-9]{10}"
-                  inputMode="numeric"
-                  className={`w-full px-4 py-3 pr-12 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.mobileNumber || mobileNumberStatus === 'exists'
-                      ? 'border-red-500'
-                      : mobileNumberStatus === 'available'
-                      ? 'border-green-500'
-                      : 'border-gray-300'
-                }`}
+                pattern="[0-9]{10}"
+                inputMode="numeric"
+                className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                 placeholder="Enter 10-digit mobile number"
               />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  {mobileNumberStatus === 'checking' && formData.mobileNumber.length === 10 && (
-                    <Loader className="w-5 h-5 text-gray-400 animate-spin" />
-                  )}
-                  {mobileNumberStatus === 'exists' && (
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                  )}
-                  {mobileNumberStatus === 'available' && (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  )}
-                </div>
-              </div>
-              {errors.mobileNumber && (
-                <p className="mt-1 text-sm text-red-500">{errors.mobileNumber}</p>
-              )}
-              {mobileNumberStatus === 'available' && !errors.mobileNumber && formData.mobileNumber.length === 10 && (
-                <p className="mt-1 text-sm text-green-600">Mobile number is available</p>
-              )}
             </div>
 
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  T-Shirt Size <span className="text-red-500">*</span>
+                  T-Shirt Size
                 </label>
                 <select
                   value={formData.tshirtSize}
                   onChange={(e) => setFormData({ ...formData, tshirtSize: e.target.value })}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.tshirtSize ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                 >
                   <option value="">Select size</option>
                   <option value="S">S</option>
@@ -667,21 +571,16 @@ export default function RegistrationForm() {
                   <option value="XL">XL</option>
                   <option value="XXL">XXL</option>
                 </select>
-                {errors.tshirtSize && (
-                  <p className="mt-1 text-sm text-red-500">{errors.tshirtSize}</p>
-                )}
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Playing Role <span className="text-red-500">*</span>
+                  Playing Role
                 </label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.role ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                 >
                   <option value="">Select role</option>
                   <option value="Batsman">Batsman</option>
@@ -689,16 +588,13 @@ export default function RegistrationForm() {
                   <option value="All-Rounder">All-Rounder</option>
                   <option value="Wicket Keeper">Wicket Keeper</option>
                 </select>
-                {errors.role && (
-                  <p className="mt-1 text-sm text-red-500">{errors.role}</p>
-                )}
               </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Name on T-Shirt <span className="text-red-500">*</span>
+                  Name on T-Shirt
                 </label>
                 <input
                   type="text"
@@ -708,22 +604,17 @@ export default function RegistrationForm() {
                     setFormData({ ...formData, tshirtName: value });
                   }}
                   maxLength={15}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.tshirtName ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                   placeholder="Enter name (max 15 chars)"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   {formData.tshirtName.length}/15 characters
                 </p>
-                {errors.tshirtName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.tshirtName}</p>
-                )}
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Number on T-Shirt <span className="text-red-500">*</span>
+                  Number on T-Shirt
                 </label>
                 <input
                   type="text"
@@ -733,24 +624,17 @@ export default function RegistrationForm() {
                     setFormData({ ...formData, tshirtNumber: value });
                   }}
                   maxLength={3}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all ${
-                    errors.tshirtNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#E6B31E] transition-all border-gray-300"
                   placeholder="Enter number (1-999)"
                 />
-                {errors.tshirtNumber && (
-                  <p className="mt-1 text-sm text-red-500">{errors.tshirtNumber}</p>
-                )}
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Profile Picture <span className="text-red-500">*</span>
+                Profile Picture
               </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
-                errors.profileFile ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-[#E6B31E] bg-gray-50'
-              }`}>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center transition-all border-gray-300 hover:border-[#E6B31E] bg-gray-50">
                 <input
                   type="file"
                   accept="image/*"
@@ -773,17 +657,12 @@ export default function RegistrationForm() {
                   )}
                 </label>
               </div>
-              {errors.profileFile && (
-                <p className="mt-1 text-sm text-red-500">{errors.profileFile}</p>
-              )}
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Aadhaar Card Upload <span className="text-red-500">*</span>
+                Aadhaar Card Upload
               </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
-                errors.aadhaarFile ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-[#E6B31E] bg-gray-50'
-              }`}>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center transition-all border-gray-300 hover:border-[#E6B31E] bg-gray-50">
                 <input
                   type="file"
                   accept="image/*"
@@ -806,9 +685,6 @@ export default function RegistrationForm() {
                   )}
                 </label>
               </div>
-              {errors.aadhaarFile && (
-                <p className="mt-1 text-sm text-red-500">{errors.aadhaarFile}</p>
-              )}
             </div>
 
             <div className="bg-[#E6B31E]/10 border-2 border-[#E6B31E] rounded-lg p-4">
@@ -1018,11 +894,9 @@ export default function RegistrationForm() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Payment Screenshot <span className="text-red-500">*</span>
+                Payment Screenshot
               </label>
-              <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
-                errors.paymentFile ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-[#E6B31E] bg-gray-50'
-              }`}>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center transition-all border-gray-300 hover:border-[#E6B31E] bg-gray-50">
                 <input
                   type="file"
                   accept="image/*"
@@ -1045,28 +919,18 @@ export default function RegistrationForm() {
                   )}
                 </label>
               </div>
-              {errors.paymentFile && (
-                <p className="mt-1 text-sm text-red-500">{errors.paymentFile}</p>
-              )}
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting || !isFormComplete}
-              className="w-full bg-[#041955] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#062972] transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
+              className="w-full bg-[#041955] text-white py-4 rounded-lg font-bold text-lg hover:bg-[#062972] transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader className="w-5 h-5 animate-spin" />
-                  <span>Submitting...</span>
-                </>
-              ) : (
-                <span>Submit Registration</span>
-              )}
+              <span>Submit Registration</span>
             </button>
           </form>
         </div>
       </div>
     </section>
+    </>
   );
 }
